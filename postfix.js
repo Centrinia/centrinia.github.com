@@ -391,7 +391,7 @@ PostfixParser.prototype.juxtaposeMultiply = function (tokens,multiply_token) {
 
 PostfixParser.prototype.parseValues = function (tokens) {
     var g = function (token) {
-        return grammar[token['token']];
+        return this.grammar[token['token']];
     }
     g = g.bind(this);
 
@@ -405,6 +405,75 @@ PostfixParser.prototype.parseValues = function (tokens) {
             }
         }
     }
+};
+PostfixParser.prototype.evaluateStack = function(tokens, log) {
+    var g = function (token) {
+        return this.grammar[token['token']];
+    }
+    g = g.bind(this);
+
+
+    var stack = [];
+    log['entries'] = [];
+    var previousToken = null;
+    var previousEntry = null;
+    var appendLog = function(token, action) {
+        var entry = {
+            'row span': 1,
+            'action': action,
+            'token': token,
+            'stack': stack.slice(0)
+        };
+        if(previousToken == token) {
+            entry['row span'] = 0;
+            previousEntry['row span']++;
+        } else {
+            previousToken = token;
+            previousEntry = entry;
+        }
+
+        log['entries'].push(entry);
+    };
+    var op = function(o1,o2, o) {
+        if(o == 'PLUS') {
+            return o1 + o2;
+        } else if(o == 'MINUS') {
+            return o1 - o2;
+        } else if(o == 'TIMES' || o == 'JTIMES') {
+            return o1 * o2;
+        } else if(o == 'DIVIDE') {
+            return o1 / o2;
+        } else if(o == 'POWER') {
+            return Math.pow(o1,o2);
+        }
+    };
+    tokens.forEach(function (token) {
+        if(g(token)['type'] == 'VALUE') {
+            var value;
+            if(token['token'] == 'INTEGER') {
+                token['value'] = parseInt(token['match'])
+            } else if(token['token'] == 'REAL') {
+                token['value'] = parseFloat(token['match'])
+            }
+
+            stack.push(token);
+            appendLog(token, 'Push value onto stack');
+        } else if(g(token)['type'] == 'OPERATOR') {
+            var o2 = stack.pop();
+            appendLog(token, 'Pop value from stack');
+            var o1 = stack.pop();
+            appendLog(token, 'Pop value from stack');
+            var d = {
+                'value': op(o1['value'], o2['value'], token['token'])
+            };
+            stack.push(d);
+            appendLog(token, 'Push result onto stack');
+        }
+    });
+    if(stack.length != 1) {
+        throw 'Invalid input';
+    }
+    return stack[0]['value'];
 };
 
 window.onload = function () {
@@ -627,82 +696,114 @@ window.onload = function () {
 
 
         /* Evaluate the expression. */
-        var grammar = GRAMMAR;
-        var evaluateStack = function(tokens, log) {
-            var stack = [];
-            log['entries'] = [];
-            var previousToken = null;
-            var previousEntry = null;
-            var appendLog = function(token, action) {
-                var entry = {
-                    'row span': 1,
-                    'action': action,
-                    'token': token,
-                    'stack': stack.slice(0)
-                };
-                if(previousToken == token) {
-                    entry['row span'] = 0;
-                    previousEntry['row span']++;
-                } else {
-                    previousToken = token;
-                    previousEntry = entry;
-                }
-
-                log['entries'].push(entry);
-            };
-            var op = function(o1,o2, o) {
-                if(o == 'PLUS') {
-                    return o1 + o2;
-                } else if(o == 'MINUS') {
-                    return o1 - o2;
-                } else if(o == 'TIMES' || o == 'JTIMES') {
-                    return o1 * o2;
-                } else if(o == 'DIVIDE') {
-                    return o1 / o2;
-                } else if(o == 'POWER') {
-                    return Math.pow(o1,o2);
-                }
-            };
-            var g = function (token) {
-                return grammar[token['token']];
-            }
-            tokens.forEach(function (token) {
-                if(g(token)['type'] == 'VALUE') {
-                    var value;
-                    if(token['token'] == 'INTEGER') {
-                        token['value'] = parseInt(token['match'])
-                    } else if(token['token'] == 'REAL') {
-                        token['value'] = parseFloat(token['match'])
-                    }
-
-                    stack.push(token);
-                    appendLog(token, 'Push value onto stack');
-                } else if(g(token)['type'] == 'OPERATOR') {
-                    var o2 = stack.pop();
-                    appendLog(token, 'Pop value from stack');
-                    var o1 = stack.pop();
-                    appendLog(token, 'Pop value from stack');
-                    var d = {
-                        'value': op(o1['value'], o2['value'], token['token'])
-                    };
-                    stack.push(d);
-                    appendLog(token, 'Push result onto stack');
-                }
-            });
-            if(stack.length != 1) {
-                throw 'Invalid input';
-            }
-            return stack[0]['value'];
-        };
-
         var evaluationLog = {};
         try {
-            var result = evaluateStack(postfixResult, evaluationLog);
+            var result = postfix.evaluateStack(postfixResult, evaluationLog);
         } catch(err) {
             makeErrorDiv('Could not evaluate: ' + err);
             return;
         }
 
+        var printTokenValueList = function (tokenList) {
+            var str = '';
+            tokenList.forEach(function (token) {
+                str += ', ' + token['value'];
+            });
+            return str.substring(2);
+        };
+
+
+
+        var make_table = function(entries, descriptors) {
+            var table = document.createElement('table');
+            var tbody = document.createElement('tbody');
+
+            table.setAttribute('id','table');
+            table.setAttribute('class','wikitable');
+
+            var headerRow = document.createElement('tr');
+
+            descriptors.forEach(function (descriptor) {
+                //['Token','Action','Stack'].forEach (function (header) {
+                var header = descriptor['header'];
+
+                var cell = document.createElement('th');
+                cell.appendChild(document.createTextNode(header));
+                headerRow.appendChild(cell);
+            });
+            tbody.appendChild(headerRow);
+
+            var previous_tds = new Array(descriptors.length);
+            var previous_rowspans = new Array(descriptors.length);
+            var previous_identifiers = new Array(descriptors.length);
+            previous_rowspans.fill(0);
+
+
+            entries.forEach(function (entry) {
+                var row = document.createElement('tr');
+                descriptors.forEach(function (descriptor,index) {
+                    var identifier = descriptor['identifier'](entry, index);
+                    if(identifier != previous_identifiers[index]) {
+                        var contents = descriptor['contents'](entry);
+
+                        var cell = document.createElement('td');
+                        cell.appendChild(contents);
+                        row.appendChild(cell);
+
+                        if(previous_tds[index]) {
+                            previous_tds[index].setAttribute('rowspan',previous_rowspans[index]);
+                        }
+                        previous_tds[index] = cell;
+                        previous_rowspans[index] = 1;
+                        previous_identifiers[index] = identifier;
+                    } else {
+                        previous_rowspans[index]++;
+                    }
+                });
+                tbody.appendChild(row);
+            });
+
+            table.appendChild(tbody);
+            return table;
+        };
+        
+        var evaluationTable = make_table(
+            evaluationLog['entries'],
+            [
+                /* The token cell. */
+                {
+                    'header': 'Token',
+                    'identifier': function(entry,index) {
+                        return entry['token'];
+                    },
+                    'contents': function(entry) {
+                        return document.createTextNode(entry['token']['match']);
+                    }
+                },
+                /* The action cell. */
+                {
+                    'header': 'Action',
+                    'identifier': function(entry,index) {
+                        return [entry['action'],entry['token']];
+                    },
+                    'contents': function(entry) {
+                        return document.createTextNode(entry['action']);
+                    }
+                },
+                /* The stack cell. */
+                {
+                    'header': 'Stack',
+                    'identifier': function(entry,index) {
+                        return entry['stack'];
+                    },
+                    'contents': function(entry) {
+                        return document.createTextNode(printTokenValueList(entry['stack']));
+                    }
+                },
+            ]);
+        outputDiv.appendChild(evaluationTable);
+
+        /*
         var evaluationTable = document.createElement('table');
         var evaluationTableBody = document.createElement('tbody');
         evaluationTable.setAttribute('id','evaluationTable');
@@ -713,17 +814,17 @@ window.onload = function () {
             cell.appendChild(document.createTextNode(header));
             evaluationTableHeader.appendChild(cell);
         });
-        var printTokenValueList = function (tokenList) {
-            var str = '';
-            tokenList.forEach(function (token) {
-                str += ', ' + token['value'];
-            });
-            return str.substring(2);
-        };
 
         evaluationTableBody.appendChild(evaluationTableHeader);
         evaluationLog['entries'].forEach(function (entry) {
             var tableRow = document.createElement('tr');
+            forEach(function (handler) {
+                var cell = document.createElement('td');
+                var text = handler['contents'](entry);
+                cell.appendChild(document.createTextNode(text));
+                tableRow.appendChild(cell);
+            });
+
             if(entry['row span'] > 0) {
                 var tokenCell = document.createElement('td');
                 if(entry['row span'] > 1) {
@@ -743,9 +844,10 @@ window.onload = function () {
 
             evaluationTableBody.appendChild(tableRow);
         });
-
         evaluationTable.appendChild(evaluationTableBody);
         outputDiv.appendChild(evaluationTable);
+        */
+
 
         /* Print the result. */
         var resultDiv = document.createElement('div');
@@ -758,8 +860,6 @@ window.onload = function () {
         resultSpan.appendChild(document.createTextNode(result));
         resultDiv.appendChild(resultSpan);
         outputDiv.appendChild(resultDiv);
-
-
     };
     parseButton.onclick = function(event) {
         doParse(this['grammar-data']);
