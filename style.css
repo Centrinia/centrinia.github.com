@@ -1,0 +1,28 @@
+table.wikitable {
+    margin: 1em 0;
+    background-color: #f9f9f9;
+    border: 1px solid #aaa;
+    border-collapse: collapse;
+    color: #000;
+}
+
+td, th {
+    display: table-cell;
+    vertical-align: middle;
+}
+table.wikitable > * > tr > td {
+    border: 1px solid #aaa;
+    padding: 0.2em 0.4em;
+}
+
+.error {
+    padding: 1em;
+    margin: 1em;
+    background-color: #ff8f8f;
+    font-size: 200%;
+}
+span.result {
+    padding: 1em;
+    margin: 1em;
+    background-color: #ffcfcf;
+}
