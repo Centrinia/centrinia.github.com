@@ -1,3 +1,5 @@
+
+
 table.wikitable {
     margin: 1em 0;
     background-color: #f9f9f9;
@@ -15,14 +17,42 @@ table.wikitable > * > tr > td {
     padding: 0.2em 0.4em;
 }
 
+table.wikitable > caption {
+    caption-side: top;
+    text-align: left;
+    font-size: 150%;
+}
+
 .error {
     padding: 1em;
     margin: 1em;
     background-color: #ff8f8f;
     font-size: 200%;
 }
-span.result {
+div.item-list {
+    margin: 4pt;
+}
+
+span.item-list {
+    margin: 2pt;
+    padding: 2pt;
+}
+span.item-list>div {
+    display: inline-block;
+    margin-left: 2pt;
+    margin-right: 2pt;
+    padding: 2pt;
+    border: 1px solid #aaa;
+}
+
+.displays {
+    margin: 2em;
+}
+
+div.result>span+span  {
     padding: 1em;
     margin: 1em;
     background-color: #ffcfcf;
 }
+
+

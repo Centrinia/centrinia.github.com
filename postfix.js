@@ -1,7 +1,8 @@
 /* postfix.js */
 
-"use strict";
+'use strict';
 
+/* Lexical tokens */
 var TOKENS = {
     'MINUS': {
         'regex pattern': '-'
@@ -14,9 +15,6 @@ var TOKENS = {
     },
     'POWER': {
         'regex pattern': '\\^'
-    },
-    'SYMBOL': {
-        'regex pattern': '[x-z]'
     },
     'LPAREN': {
         'regex pattern': '\\('
@@ -108,8 +106,29 @@ var GRAMMAR = {
     },
 };
 
+/**
+ * Deep compare two arrays for equality.
+ */
+var arrays_equal = function(a,b) {
+    if(a instanceof Array && b instanceof Array) {
+        if(a.length != b.length) {
+            return false;
+        }
+        for(var i=0;i<a.length;i++) {
+            if(!arrays_equal(a[i], b[i])) {
+                return false;
+            }
+        }
+        return true;
+    } else {
+        return a == b;
+    }
+};
+
 if(!Object.prototype.clone) {
-    /* Deep copy an Object and return the copy. */
+    /**
+     * Deep copy an Object and return the copy.
+     */
     Object.prototype.clone = function() {
       if (this === null || typeof(this) !== 'thisect' || 'isActiveClone' in this)
         return this;
@@ -218,14 +237,12 @@ PostfixParser.prototype.parse = function (tokens,log) {
     if(log) {
         /* Clear the log. */
         log['entries'] = [];
-        var previousToken = null;
-        var previousEntry = null;
+
         var appendLog = function(token, action,notes) {
             /* Construct an entry. */
             var entry = {
-                'row span': 1,
                 'action': action,
-                'token': token['match'],
+                'token': token,
                 'output': output.slice(0),
                 'stack': stack.slice(0),
             };
@@ -234,13 +251,6 @@ PostfixParser.prototype.parse = function (tokens,log) {
             }
             /* Advance the group if the token is new, otherwise update the head 
              * and set the current row span to zero. */
-            if(previousToken != token) {
-                previousToken = token;
-                previousEntry = entry;
-            } else {
-                entry['row span'] = 0;
-                previousEntry['row span']++;
-            }
             log['entries'].push(entry);
         };
     } else {
@@ -248,7 +258,9 @@ PostfixParser.prototype.parse = function (tokens,log) {
         var appendLog = function(token, action,notes) {};
     }
     /* The shunting yard algorithm. */
-    tokens.forEach(function (token) {
+    tokens.forEach(function (tok,index) {
+        var token = tok.clone();
+        token['index'] = index;
         if(g(token)['type'] == 'VALUE') {
             output.push(token);
             appendLog(token, 'Append token to output');
@@ -261,7 +273,6 @@ PostfixParser.prototype.parse = function (tokens,log) {
                     (g(o1)['associativity'] == 'RIGHT' && g(o1)['precedence'] < g(o2)['precedence']))) {
                     var o = stack.pop();
                     output.push(o);
-
 
                     appendLog(token, 'Pop operator stack into output', 
                         g(o1)['associativity'] == 'LEFT' ?
@@ -295,7 +306,7 @@ PostfixParser.prototype.parse = function (tokens,log) {
             }
         }
     });
-    var endToken = {'match': 'end'};
+    var endToken = {'match': ''};
     while(stack.length > 0) {
         if(g(stack[stack.length - 1])['type'] == 'BRACKET') {
             throw 'Mismatched brackets';
@@ -389,51 +400,37 @@ PostfixParser.prototype.juxtaposeMultiply = function (tokens,multiply_token) {
     }
 };
 
-PostfixParser.prototype.parseValues = function (tokens) {
-    var g = function (token) {
-        return this.grammar[token['token']];
-    }
-    g = g.bind(this);
-
-    for(var i=0;i<tokens.length;i++) {
-        var token = tokens[i];
-        if(g(token)['type'] == 'VALUE') {
-            if(token['token'] == 'INTEGER') {
-                token['value'] = parseInt(token['match'])
-            } else if(token['token'] == 'REAL') {
-                token['value'] = parseFloat(token['match'])
-            }
-        }
-    }
-};
-PostfixParser.prototype.evaluateStack = function(tokens, log) {
+/**
+ * Evaluate a postfix list.
+ */
+PostfixParser.prototype.evaluate = function(tokens, log) {
     var g = function (token) {
         return this.grammar[token['token']];
     }
     g = g.bind(this);
 
 
+    /* Start with empty stack. */
     var stack = [];
-    log['entries'] = [];
-    var previousToken = null;
-    var previousEntry = null;
-    var appendLog = function(token, action) {
-        var entry = {
-            'row span': 1,
-            'action': action,
-            'token': token,
-            'stack': stack.slice(0)
+    if(log) {
+        /* Start with an empty log. */
+        log['entries'] = [];
+        var appendLog = function(token, action,notes) {
+            var entry = {
+                'action': action,
+                'token': token,
+                'stack': stack.slice(0)
+            };
+            if(notes) {
+                entry['notes'] = notes;
+            }
+            log['entries'].push(entry);
         };
-        if(previousToken == token) {
-            entry['row span'] = 0;
-            previousEntry['row span']++;
-        } else {
-            previousToken = token;
-            previousEntry = entry;
-        }
-
-        log['entries'].push(entry);
-    };
+    } else {
+        /* Don't do anything to the log. */
+        var appendLog = function() {};
+    }
+    /* Execute an operator. */
     var op = function(o1,o2, o) {
         if(o == 'PLUS') {
             return o1 + o2;
@@ -449,7 +446,7 @@ PostfixParser.prototype.evaluateStack = function(tokens, log) {
     };
     tokens.forEach(function (token) {
         if(g(token)['type'] == 'VALUE') {
-            var value;
+            /* Parse the token value. */
             if(token['token'] == 'INTEGER') {
                 token['value'] = parseInt(token['match'])
             } else if(token['token'] == 'REAL') {
@@ -459,21 +456,30 @@ PostfixParser.prototype.evaluateStack = function(tokens, log) {
             stack.push(token);
             appendLog(token, 'Push value onto stack');
         } else if(g(token)['type'] == 'OPERATOR') {
+            /* Pop two elements from the stack, perform the operation, and push the result back. */
+            if(stack.length < 2) {
+                throw 'Invalid input';
+            }
+
             var o2 = stack.pop();
-            appendLog(token, 'Pop value from stack');
+            appendLog(token, 'Pop value from stack', 'Operand: ' + o2['value']);
+
             var o1 = stack.pop();
-            appendLog(token, 'Pop value from stack');
+            appendLog(token, 'Pop value from stack', 'Operand: ' + o1['value']);
+
             var d = {
                 'value': op(o1['value'], o2['value'], token['token'])
             };
+
             stack.push(d);
-            appendLog(token, 'Push result onto stack');
+            appendLog(token, 'Push result onto stack', 'Operation: ' + o1['value'] + ' ' + token['match'] + ' ' + o2['value'] + ' = ' + d['value']);
         }
     });
+    /* There should only be a single item in the stack. */
     if(stack.length != 1) {
         throw 'Invalid input';
     }
-    return stack[0]['value'];
+    return stack.pop()['value'];
 };
 
 window.onload = function () {
@@ -482,292 +488,409 @@ window.onload = function () {
     var outputDiv = document.getElementById('outputDiv');
 
 
-    var buildOperatorTable = function(grammar) {
-        /*for(operatorKey in grammar) {
-            grammar[operatorKey]['key'] = operatorKey;
-        }*/
+    /**
+     * Make an HTML table. The id is the DOM id, the entries are the unfiltered
+     * rows of the list, and filter filters those entries.
+     */
+    var make_table = function(id, entries, descriptors, filter) {
+        var table = document.createElement('table');
+        var tbody = document.createElement('tbody');
 
-        if(document.getElementById('operatorTable') != null) {
-            operatorTableDiv.removeChild(document.getElementById('operatorTable'));
-        }
-        var operatorTable = document.createElement('table');
-        operatorTable.setAttribute('id','operatorTable');
-        operatorTable.setAttribute('class','wikitable');
-        var operatorTableBody = document.createElement('tbody');
+        table.id = id;
+        table.classList.add('wikitable');
 
-        var operatorTableHeader = document.createElement('tr');
-        ['Operator','Associativity','Precedence'].forEach (function (header) {
+        /* Create the header row. */
+        var thead = document.createElement('thead');
+        var headerRow = document.createElement('tr');
+        descriptors.forEach(function (descriptor) {
+            var header = descriptor['header'];
+
             var cell = document.createElement('th');
             cell.appendChild(document.createTextNode(header));
-            operatorTableHeader.appendChild(cell);
+            headerRow.appendChild(cell);
         });
-        operatorTableBody.appendChild(operatorTableHeader);
- 
-        for(var operatorKey in grammar) {
-            var operator = grammar[operatorKey];
+        thead.appendChild(headerRow);
 
-            //if(['OPERATOR','BRACKET'].includes(operator['type'])) {
-            if(['OPERATOR'].includes(operator['type'])) {
-                var row = document.createElement('tr');
+        table.appendChild(thead);
 
-                /* Make the name cell. */
-                var nameCell = document.createElement('td');
-                nameCell.appendChild(document.createTextNode(operator['name']));
-                row.appendChild(nameCell);
+        /* Keep track of the previous cell. If successive cells in a column are essentially identical
+         * then we can merge them by increasing the row span and omitting the subsequent <td> elements. */
+        var previous_tds = new Array(descriptors.length);
+        var previous_rowspans = new Array(descriptors.length);
+        var previous_identifiers = new Array(descriptors.length);
+        previous_rowspans.fill(0);
 
-                /* Make the associativity option. */
-                var associativityCell = document.createElement('td');
-                var associativitySelect = document.createElement('select');
-                var defaultAssociativity;
-                if(operator['type'] == 'OPERATOR') {
-                    defaultAssociativity = operator['associativity'];
-                } else if(operator['type'] == 'BRACKET') {
-                    defaultAssociativity = operator['bracket'];
+        /* Make a row element from an entry and entries' key. */
+        var make_row = function (entry,key) {
+            var row = document.createElement('tr');
+
+            /* Make a cell for each descriptor. */
+            descriptors.forEach(function (descriptor,index) {
+                var identifier = descriptor['identifier'](entry, index,key);
+
+                if(!arrays_equal(identifier, previous_identifiers[index])) {
+                    /* This cell is not essentially identical to the previous one. Construct a new cell.
+                     * First construct the contents of the cell from the entry. */
+                    var contents = descriptor['contents'](entry,index,key);
+
+                    var cell = document.createElement('td');
+                    cell.appendChild(contents);
+                    row.appendChild(cell);
+
+                    /* Update the previous cell information. */
+                    if(previous_tds[index] && previous_rowspans[index] > 1) {
+                        /* Set the rowspan of the previous <td> if that element exists and the rowspan is greater than one. */
+                        previous_tds[index].rowSpan = previous_rowspans[index];
+                    }
+                    previous_tds[index] = cell;
+                    previous_rowspans[index] = 1;
+                    previous_identifiers[index] = identifier;
+                } else {
+                    /* This cell is essentially identical to the previous one. Do not construct a new
+                     * cell and update the rowspan for the current group of column cells. */
+                    previous_rowspans[index]++;
                 }
-                associativitySelect['operator-data'] = {
-                    'key': operatorKey,
-                    'value': operator,
-                    //'options': []
-                };
-                [
-                    {'text':'Left','name':'LEFT'},
-                    {'text':'Right','name':'RIGHT'}
-                ].forEach(function (descriptor) {
-                    var option = document.createElement('option');
-                    option.setAttribute('value', descriptor['name']);
-                    option.appendChild(document.createTextNode(descriptor['text']));
-
-                    if(defaultAssociativity == descriptor['name']) {
-                        option.setAttribute('selected','selected');
-                    }
-                    //associativitySelect['operator-data']['options'].push(option);
-                    //associativitySelect.appendChild(option);
-                    associativitySelect.add(option);
-                });
-                var associativityHandler = function() {
-                    var operator_data = this['operator-data'];
-                    if(operator_data['value']['type'] == 'OPERATOR') {
-                        operator_data['value']['associativity'] = this.value.toString();
-                    } else if(operator_data['value']['type'] == 'BRACKET') {
-                        operator_data['value']['bracket'] = this.value.toString();
-                    }
-                    if(parsed) {
-                        doParse(grammar);
-                    }
-                };
-                associativitySelect.onchange = associativityHandler;
-
-                associativityCell.appendChild(associativitySelect);
-                row.appendChild(associativityCell);
-
-
-                /* Make the precendence selector. */
-                var precedenceCell = document.createElement('td');
-                var defaultPrecedence = operator['precedence'];
-                var numberElement = document.createElement('input');
-                numberElement.setAttribute('type','number');
-                numberElement.setAttribute('min','0');
-                numberElement.setAttribute('max','11');
-                numberElement.setAttribute('value',defaultPrecedence.toString());
-
-                var precedenceHandler = function() {
-                    var operator_data = this['operator-data'];
-                    operator_data['value']['precedence'] = this.value.toString();
-                    if(parsed) {
-                        doParse(grammar);
-                    }
-                };
-                numberElement.onchange = precedenceHandler;
-                numberElement['operator-data'] = {
-                    'key': operatorKey,
-                    'value': operator
+                if(previous_tds[index] && previous_rowspans[index] > 1) {
+                    /* Update the rowspan for the last group. */
+                    previous_tds[index].rowSpan = previous_rowspans[index];
                 }
+            });
+            /* Add the <tr> to the table body. */
+            tbody.appendChild(row);
+        };
 
-                precedenceCell.appendChild(numberElement);
-                row.appendChild(precedenceCell);
-
-                operatorTableBody.appendChild(row);
+        /* Make the rows. */
+        if(entries instanceof Array) {
+            if(!filter) {
+                /* Use the trivial filter. */
+                filter = function() { return true; }
+            }
+            entries.filter(filter).forEach(make_row);
+        } else {
+            for(var key in entries) {
+                if(!filter || filter(entries[key])) {
+                    make_row(entries[key],key);
+                }
             }
         }
-        operatorTable.appendChild(operatorTableBody);
+
+        table.appendChild(tbody);
+
+        return table;
+    };
+
+
+    /**
+     * Give a table a caption.
+     */
+    var caption_table = function(table_element, caption) {
+        var caption_element = document.createElement('caption');
+        caption_element.appendChild(document.createTextNode(caption));
+
+        /* The <caption> element must be the first element of the <table> element. */
+        if(table_element.firstChild) {
+            table_element.insertBefore(caption_element, table_element.firstChild);
+        } else {
+            table_element.appendChild(caption_element);
+        }
+    };
+
+    /* Make the operator table. */
+    var buildOperatorTable = function(grammar) {
+        if(document.getElementById('operator-table') != null) {
+            operatorTableDiv.removeChild(document.getElementById('operator-table'));
+        }
+
+        var operatorTable = make_table(
+            'operator-table',
+            grammar,
+            [
+                /* The name cell. */
+                {
+                    'header': 'Operator',
+                    'identifier': function(operator, index) {
+                        return operator;
+                    },
+                    'contents': function(operator) {
+                        return document.createTextNode(operator['name']);
+                    }
+                },
+                /* The associativity cell. */
+                {
+                    'header': 'Associativity',
+                    'identifier': function(operator, index) {
+                        return operator;
+                    },
+                    'contents': function(operator,index,operatorKey) {
+                        var select_element = document.createElement('select');
+
+                        var defaultAssociativity = operator['associativity'];
+                        select_element['operator-data'] = {
+                            'key': operatorKey,
+                            'value': operator,
+                        };
+                        /* Create the associativity <select> options. */
+                        [
+                            {'text':'Left','name':'LEFT'},
+                            {'text':'Right','name':'RIGHT'}
+                        ].forEach(function (descriptor,index) {
+                            var option_element = document.createElement('option');
+
+                            option_element.value = descriptor['name'];
+
+                            option_element.appendChild(document.createTextNode(descriptor['text']));
+
+                            /* If the current option is the default then select it. */
+                            if(defaultAssociativity == descriptor['name']) {
+                                option_element.selected = true;
+                            }
+                            select_element.add(option_element);
+                        });
+                        /* Handle changes. Change the grammar and redo a parse. */
+                        var handler = function() {
+                            var operator_data = this['operator-data'];
+                            operator_data['value']['associativity'] = this.value.toString();
+                            if(parsed) {
+                                doParse(grammar);
+                            }
+                        };
+                        select_element.onchange = handler;
+
+                        return select_element;
+                    }
+                },
+                /* The precedence cell. */
+                {
+                    'header': 'Precedence',
+                    'identifier': function(operator, index) {
+                        return operator;
+                    },
+                    'contents': function(operator,index,operatorKey) {
+                        var defaultPrecedence = operator['precedence'];
+                        var number_element = document.createElement('input');
+
+                        number_element.type = 'number';
+                        number_element.value = defaultPrecedence.toString();
+
+                        /* Set the extreme precedences. */
+                        number_element.min = 0;
+                        number_element.max = 11;
+
+
+                        /* Handle a change. Change the grammar and redo a parse. */
+                        var handler = function() {
+                            var operator_data = this['operator-data'];
+                            operator_data['value']['precedence'] = this.value.toString();
+                            if(parsed) {
+                                doParse(grammar);
+                            }
+                        };
+                        number_element.onchange = handler;
+                        number_element['operator-data'] = {
+                            'key': operatorKey,
+                            'value': operator
+                        }
+
+                        return number_element;
+                    }
+                }
+
+            ],
+            function (token) {
+                return token['type'] == 'OPERATOR';
+            }
+        );
+        caption_table(operatorTable, 'Operators');
         operatorTableDiv.appendChild(operatorTable);
     };
     var grammar = GRAMMAR.clone();
     var parsed = false;
     buildOperatorTable(grammar);
 
+    /* Parse and generate tables. */
     var doParse = function (grammar) {
-        ['shuntingTable','rpnDiv','evaluationTable','resultDiv','errorDiv'].forEach(function (id) {
+        /* Remove previous elements. */
+        ['shunting-table','rpn-div','evaluation-table','result-div','error-div'].forEach(function (id) {
             if(document.getElementById(id) != null) {
                 outputDiv.removeChild(document.getElementById(id));
             }
         }); 
+
+        /* Make a big error indicator. */
         var makeErrorDiv = function (errorText) {
             var errorDiv = document.createElement('div');
-            errorDiv.setAttribute('id','errorDiv');
-            errorDiv.setAttribute('class','error');
+            errorDiv.id = 'error-div';
+            errorDiv.classList.add('error');
             errorDiv.appendChild(document.createTextNode(errorText));
             outputDiv.appendChild(errorDiv);
         };
 
-        var lex = new Lexer(TOKENS);
 
+        var lexer = new Lexer(TOKENS);
+
+        /* Produce a list of tokens. */
         try {
-            var lexResult = lex.lex(inputField.value);
+            var lexResult = lexer.lex(inputField.value);
         } catch(err) {
             makeErrorDiv('Could not lex: '+ err);
             return;
         }
-        //console.log(lexResult);
 
-        var postfix = new PostfixParser(grammar);
+        var postfixParser = new PostfixParser(grammar);
+
         /* Turn juxtapositions into multiplications. */
-        postfix.juxtaposeMultiply(lexResult,
+        postfixParser.juxtaposeMultiply(lexResult,
             {
                 'token': 'JTIMES',
                 'match': '.'
             });
+
+        /* Produce a postfix list. */
         var parseLog = {};
         try {
-            var postfixResult = postfix.parse(lexResult, parseLog);
+            var postfixResult = postfixParser.parse(lexResult, parseLog);
         } catch(err) {
             makeErrorDiv('Could not parse: ' + err);
             return;
         }
-        var shuntingTable = document.createElement('table');
-        var shuntingTableBody = document.createElement('tbody');
-        shuntingTable.setAttribute('id','shuntingTable');
-        shuntingTable.setAttribute('class','wikitable');
-        var shuntingTableHeader = document.createElement('tr');
-        ['Token','Action','Output','Operator Stack'].forEach (function (header) {
-            var cell = document.createElement('th');
-            cell.appendChild(document.createTextNode(header));
-            shuntingTableHeader.appendChild(cell);
-        });
-        shuntingTableBody.appendChild(shuntingTableHeader);
-        var printTokenMatchList = function (tokenList) {
-            var str = '';
-            tokenList.forEach(function (token) {
-                str += ', ' + token['match'];
-            });
-            return str.substring(2);
+
+        /**
+         * Enclose an element in a <div> and return the <div>.
+         */
+        var enclose_in_div = function(element, style_class) {
+            var div = document.createElement('div');
+            div.classList.add(style_class);
+            div.appendChild(element);
+            return div;
         };
 
-        parseLog['entries'].forEach(function (entry) {
-            var tableRow = document.createElement('tr');
-           if(entry['row span'] > 0) {
-                var tokenCell = document.createElement('td');
-                if(entry['row span'] > 1) {
-                    tokenCell.setAttribute('rowspan', entry['row span']);
+        /**
+         * Make a string of elements.
+         */
+        var make_item_list = function (item_list) {
+            var list_div = document.createElement('span');
+            list_div.classList.add('item-list');
+
+            item_list.forEach(function (item) {
+                var item_div = document.createElement('div');
+                item_div.appendChild(document.createTextNode(item));
+                list_div.appendChild(item_div);
+            });
+
+            return list_div;
+        };
+
+        /* Make the shunting yard log table. */
+        var shuntingTable = make_table(
+            'shunting-table',
+            parseLog['entries'],
+            [
+                /* The token cell. */
+                {
+                    'header': 'Token',
+                    'identifier': function(entry,index,key) {
+                        return entry['token'];
+                    },
+                    'contents': function(entry) {
+                        return document.createTextNode(entry['token']['match']);
+                    }
+                },
+                /* The action cell. */
+                {
+                    'header': 'Action',
+                    'identifier': function(entry,index) {
+                        return [entry['token'],entry['action']];
+                    },
+                    'contents': function(entry) {
+                        return document.createTextNode(entry['action']);
+                    }
+                },
+                /* The output cell. */
+                {
+                    'header': 'Output',
+                    'identifier': function(entry,index) {
+                        return entry['output'];
+                    },
+                    'contents': function(entry) {
+                        return enclose_in_div(make_item_list(
+                                    entry['output'].map(function(token) { 
+                                        return token['match'] 
+                                    })
+                                ),'item-list');
+                    }
+                },
+                /* The stack cell. */
+                {
+                    'header': 'Stack',
+                    'identifier': function(entry,index) {
+                        return entry['stack'];
+                    },
+                    'contents': function(entry) {
+                        return enclose_in_div(make_item_list(
+                                    entry['stack'].map(function(token) { 
+                                        return token['match'] 
+                                    })
+                                ),'item-list');
+                    }
+                },
+                /* The notes cell. */
+                {
+                    'header': 'Notes',
+                    'identifier': function(entry,index) {
+                        return 'notes' in entry ? entry['notes'] : null;
+                    },
+                    'contents': function(entry) {
+                        return document.createTextNode('notes' in entry ? entry['notes'] : '');
+                    }
                 }
-                tokenCell.appendChild(document.createTextNode(entry['token']));
-                tableRow.appendChild(tokenCell);
-            }
-
-            var actionCell = document.createElement('td');
-            actionCell.appendChild(document.createTextNode(entry['action']));
-            tableRow.appendChild(actionCell);
-
-            var outputCell = document.createElement('td');
-            outputCell.appendChild(document.createTextNode(printTokenMatchList(entry['output'])));
-            tableRow.appendChild(outputCell);
-
-            var stackCell = document.createElement('td');
-            stackCell.appendChild(document.createTextNode(printTokenMatchList(entry['stack'])));
-            tableRow.appendChild(stackCell);
-
-            shuntingTableBody.appendChild(tableRow);
-        });
-
-        shuntingTable.appendChild(shuntingTableBody);
+            ]);
+        caption_table(shuntingTable, 'Shunting Yard Algorithm');
+        shuntingTable.classList.add('displays');
         outputDiv.appendChild(shuntingTable);
 
+        /* Make a label in front of the given element. */
+        var make_labeled_element = function(label, element) {
+            var div = document.createElement('div');
+
+
+            var label_span = document.createElement('span');
+            label_span.appendChild(document.createTextNode(label));
+            div.appendChild(label_span);
+
+            var span = document.createElement('span');
+
+            span.appendChild(element);
+            div.appendChild(span);
+
+            return div;
+        };
+
         /* Print the RPN. */
-        var rpnDiv = document.createElement('div');
-        rpnDiv.setAttribute('id','rpnDiv');
-        var rpnLabelSpan = document.createElement('span');
-        rpnLabelSpan.appendChild(document.createTextNode('Postfix: '));
-        rpnDiv.appendChild(rpnLabelSpan);
-        var rpnSpan = document.createElement('span');
-        rpnSpan.setAttribute('class','result');
-        rpnSpan.appendChild(document.createTextNode(printTokenMatchList(postfixResult)));
-        rpnDiv.appendChild(rpnSpan);
-        outputDiv.appendChild(rpnDiv);
+        var rpn_div = make_labeled_element('Postfix:', 
+                make_item_list(
+                     postfixResult.map(function(token) { 
+                        return token['match'];
+                    })
+                )
+            );
+        rpn_div.id = 'rpn-div';
+        rpn_div.classList.add('result');
+        rpn_div.classList.add('displays');
+        outputDiv.appendChild(rpn_div);
 
 
         /* Evaluate the expression. */
         var evaluationLog = {};
         try {
-            var result = postfix.evaluateStack(postfixResult, evaluationLog);
+            var result = postfixParser.evaluate(postfixResult, evaluationLog);
         } catch(err) {
             makeErrorDiv('Could not evaluate: ' + err);
             return;
         }
 
-        var printTokenValueList = function (tokenList) {
-            var str = '';
-            tokenList.forEach(function (token) {
-                str += ', ' + token['value'];
-            });
-            return str.substring(2);
-        };
-
-
-
-        var make_table = function(entries, descriptors) {
-            var table = document.createElement('table');
-            var tbody = document.createElement('tbody');
-
-            table.setAttribute('id','table');
-            table.setAttribute('class','wikitable');
-
-            var headerRow = document.createElement('tr');
-
-            descriptors.forEach(function (descriptor) {
-                //['Token','Action','Stack'].forEach (function (header) {
-                var header = descriptor['header'];
-
-                var cell = document.createElement('th');
-                cell.appendChild(document.createTextNode(header));
-                headerRow.appendChild(cell);
-            });
-            tbody.appendChild(headerRow);
-
-            var previous_tds = new Array(descriptors.length);
-            var previous_rowspans = new Array(descriptors.length);
-            var previous_identifiers = new Array(descriptors.length);
-            previous_rowspans.fill(0);
-
-
-            entries.forEach(function (entry) {
-                var row = document.createElement('tr');
-                descriptors.forEach(function (descriptor,index) {
-                    var identifier = descriptor['identifier'](entry, index);
-                    if(identifier != previous_identifiers[index]) {
-                        var contents = descriptor['contents'](entry);
-
-                        var cell = document.createElement('td');
-                        cell.appendChild(contents);
-                        row.appendChild(cell);
-
-                        if(previous_tds[index]) {
-                            previous_tds[index].setAttribute('rowspan',previous_rowspans[index]);
-                        }
-                        previous_tds[index] = cell;
-                        previous_rowspans[index] = 1;
-                        previous_identifiers[index] = identifier;
-                    } else {
-                        previous_rowspans[index]++;
-                    }
-                });
-                tbody.appendChild(row);
-            });
-
-            table.appendChild(tbody);
-            return table;
-        };
-        
+        /* Make the evaluation log table. */
         var evaluationTable = make_table(
+            'evaluation-table',
             evaluationLog['entries'],
             [
                 /* The token cell. */
@@ -784,7 +907,7 @@ window.onload = function () {
                 {
                     'header': 'Action',
                     'identifier': function(entry,index) {
-                        return [entry['action'],entry['token']];
+                        return entry['action'];
                     },
                     'contents': function(entry) {
                         return document.createTextNode(entry['action']);
@@ -797,70 +920,39 @@ window.onload = function () {
                         return entry['stack'];
                     },
                     'contents': function(entry) {
-                        return document.createTextNode(printTokenValueList(entry['stack']));
+                        return enclose_in_div(make_item_list(
+                                    entry['stack'].map(function(token) { 
+                                        return token['value']; 
+                                    })
+                                ),'item-list');
                     }
                 },
-            ]);
-        outputDiv.appendChild(evaluationTable);
+                /* The notes cell. */
+                {
+                    'header': 'Notes',
+                    'identifier': function(entry,index) {
+                        return 'notes' in entry ? entry : null;
+                    },
+                    'contents': function(entry) {
+                        return document.createTextNode('notes' in entry ? entry['notes'] : '');
+                    }
 
-        /*
-        var evaluationTable = document.createElement('table');
-        var evaluationTableBody = document.createElement('tbody');
-        evaluationTable.setAttribute('id','evaluationTable');
-        evaluationTable.setAttribute('class','wikitable');
-        var evaluationTableHeader = document.createElement('tr');
-        ['Token','Action','Stack'].forEach (function (header) {
-            var cell = document.createElement('th');
-            cell.appendChild(document.createTextNode(header));
-            evaluationTableHeader.appendChild(cell);
-        });
-
-        evaluationTableBody.appendChild(evaluationTableHeader);
-        evaluationLog['entries'].forEach(function (entry) {
-            var tableRow = document.createElement('tr');
-            forEach(function (handler) {
-                var cell = document.createElement('td');
-                var text = handler['contents'](entry);
-                cell.appendChild(document.createTextNode(text));
-                tableRow.appendChild(cell);
-            });
-
-            if(entry['row span'] > 0) {
-                var tokenCell = document.createElement('td');
-                if(entry['row span'] > 1) {
-                    tokenCell.setAttribute('rowspan', entry['row span']);
                 }
-                tokenCell.appendChild(document.createTextNode(entry['token']['match']));
-                tableRow.appendChild(tokenCell);
-            }
-
-            var actionCell = document.createElement('td');
-            actionCell.appendChild(document.createTextNode(entry['action']));
-            tableRow.appendChild(actionCell);
-
-            var stackCell = document.createElement('td');
-            stackCell.appendChild(document.createTextNode(printTokenValueList(entry['stack'])));
-            tableRow.appendChild(stackCell);
-
-            evaluationTableBody.appendChild(tableRow);
-        });
-        evaluationTable.appendChild(evaluationTableBody);
+            ]);
+        caption_table(evaluationTable, 'Postfix Evaluation');
+        evaluationTable.classList.add('displays');
         outputDiv.appendChild(evaluationTable);
-        */
-
 
         /* Print the result. */
-        var resultDiv = document.createElement('div');
-        resultDiv.setAttribute('id','resultDiv');
-        var resultLabelSpan = document.createElement('span');
-        resultLabelSpan.appendChild(document.createTextNode('Result: '));
-        resultDiv.appendChild(resultLabelSpan);
-        var resultSpan = document.createElement('span');
-        resultSpan.setAttribute('class','result');
-        resultSpan.appendChild(document.createTextNode(result));
-        resultDiv.appendChild(resultSpan);
-        outputDiv.appendChild(resultDiv);
+        var result_div = make_labeled_element('Result:', document.createTextNode(result));
+        result_div.id = 'result-div';
+        result_div.classList.add('result');
+        result_div.classList.add('displays');
+        outputDiv.appendChild(result_div);
+
     };
+
+    /* Handle the parse button clicks. */
     parseButton.onclick = function(event) {
         doParse(this['grammar-data']);
         parsed = true;
@@ -868,6 +960,7 @@ window.onload = function () {
     };
     parseButton['grammar-data'] = grammar;
 
+    /* Handle the enter key on the input field. */
     inputField.onkeyup = function (event) {
         if(event.keyCode == 13) {
             event.preventDefault();
