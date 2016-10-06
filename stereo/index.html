@@ -1,0 +1,43 @@
+<html>
+    <head>
+        <title>Stereographic</title>
+        <script type="text/javascript" src="stereo.js"></script>
+        <script id="shader-fragment" type="x-shader/x-fragment">
+            precision mediump float;
+            varying vec2 v_position;
+            uniform vec4 u_rotation;
+            uniform float u_displacement;
+            uniform samplerCube u_cubemap;
+
+
+
+            /* Transform a vector using a quaternion. */
+            vec3 qtransform(vec4 q, vec3 v) {
+                return v + 2.0 * cross(cross(v, q.xyz) + q.w * v, q.xyz);
+            }
+            void main() {
+                vec2 XY = v_position*u_displacement / 4.0;
+                vec3 p =  vec3(2.0*XY, 1.0 - dot(XY,XY));
+
+                p /= 1.0 + dot(XY,XY);
+
+                /* Rotate the sphere. */
+                p = qtransform(u_rotation,p);
+
+
+                gl_FragColor = textureCube(u_cubemap, p);
+            }
+        </script>
+        <script id="shader-vertex" type="x-shader/x-vertex">
+            attribute vec2 a_position;
+            varying vec2 v_position;
+            void main() {
+                gl_Position = vec4(a_position,0.0,1.0);
+                v_position = a_position;
+            }
+        </script>
+    </head>
+    <body>
+        <canvas id="canvas" width="1024" height="1024"></canvas>
+    </body>
+</html>

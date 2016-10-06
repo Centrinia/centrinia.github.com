@@ -1,0 +1,49 @@
+<html>
+<head>
+<title>Fire</title>
+<script type="text/javascript" src="golgl.js"></script>
+<script id="shader-fragment" type="x-shader/x-fragment">
+precision lowp float;
+
+
+uniform vec2 dims;
+uniform sampler2D sampler;
+varying vec2 vTextureCoord;
+
+void main() {
+    vec2 deltax = vec2(1.0 / dims.x, 0.0);
+    vec2 deltay = vec2(0.0, 1.0 / dims.y);
+    float c0 = texture2D(sampler,vTextureCoord - deltay - deltax).r;
+    float c1 = texture2D(sampler,vTextureCoord - deltay).r;
+    float c2 = texture2D(sampler,vTextureCoord - deltay + deltax).r;
+    float c3 = texture2D(sampler,vTextureCoord - deltax).r;
+    float c4 = texture2D(sampler,vTextureCoord).r;
+    float c5 = texture2D(sampler,vTextureCoord + deltax).r;
+    float c6 = texture2D(sampler,vTextureCoord + deltay - deltax).r;
+    float c7 = texture2D(sampler,vTextureCoord + deltay).r;
+    float c8 = texture2D(sampler,vTextureCoord + deltay + deltax).r;
+    float s = c0+c1+c2+c3+c5+c6+c7+c8;
+    float c;
+
+    if(c4 < 0.5) {
+        c = 2.5 < s && s < 3.5 ? 1.0 : 0.0;
+    } else {
+        c = s < 1.5 || s > 3.5 ? 0.0 : 1.0;
+    }
+    gl_FragColor = vec4(c,c,c,c);
+}
+</script>
+<script id="shader-vertex" type="x-shader/x-vertex">
+attribute vec2 aVertexPosition;
+varying vec2 vTextureCoord;
+void main() {
+	gl_Position = vec4(aVertexPosition*2.0-1.0,0,1);
+	vTextureCoord = aVertexPosition;
+}
+</script>
+
+</head>
+<body>
+<canvas id="canvas" width="1024" height="1024" style="background: black"></canvas>
+</body>
+</html>

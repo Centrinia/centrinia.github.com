@@ -1,0 +1,51 @@
+<html>
+<head>
+<title>Fire</title>
+<script type="text/javascript" src="sephiroth.js"></script>
+<script id="shader-fragment" type="x-shader/x-fragment">
+precision mediump float;
+
+
+uniform float dieoff;
+uniform vec4 color0;
+uniform vec4 color1;
+uniform vec2 dims;
+uniform sampler2D line;
+uniform sampler2D sampler;
+varying vec2 vTextureCoord;
+
+float f(float f) { 
+    return (f - color0.a) / (color1.a - color0.a);
+}
+void main() {
+    vec2 deltax = vec2(1.0 / dims.x, 0.0);
+    vec2 deltay = vec2(0.0, 1.0 / dims.y);
+    float c0 = texture2D(sampler,vTextureCoord - deltay).a;
+    float c1 = vTextureCoord.x >= deltax.x ? texture2D(sampler,vTextureCoord - deltay - deltax).a : 0.0;
+    float c2 = vTextureCoord.x + deltax.x< 1.0 ? texture2D(sampler,vTextureCoord - deltay + deltax).a : 0.0;
+    float c3 = texture2D(sampler,vTextureCoord - deltay * 2.0).a;
+    float c = (c0+c1+c2+c3) * dieoff / 4.00;
+    vec4 color;
+    if(vTextureCoord.y >  deltay.y) {
+        color = mix(color0, color1, c);
+    } else {
+        color = mix(color0, color1, texture2D(line,vec2(vTextureCoord.x,0.0)).r);
+    }
+    gl_FragColor.rgb = color.rgb * color.a;
+    gl_FragColor.a = f(color.a);
+}
+</script>
+<script id="shader-vertex" type="x-shader/x-vertex">
+attribute vec2 aVertexPosition;
+varying vec2 vTextureCoord;
+void main() {
+	gl_Position = vec4(aVertexPosition*2.0-1.0,0,1);
+	vTextureCoord = aVertexPosition;
+}
+</script>
+
+</head>
+<body>
+<canvas id="canvas" width=512" height="512" style="background-image: url('sephiroth.jpg')"></canvas>
+</body>
+</html>

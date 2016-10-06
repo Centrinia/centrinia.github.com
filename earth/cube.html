@@ -1,0 +1,48 @@
+<html>
+    <head>
+        <title>Cubemap</title>
+        <script type="text/javascript" src="stereo.js"></script>
+        <script id="shader-fragment" type="x-shader/x-fragment">
+            precision mediump float;
+            varying vec2 v_position;
+            uniform vec4 u_rotation;
+            uniform float u_displacement;
+            uniform samplerCube u_cubemap;
+
+            #define M_PI 3.1415926535897932384626433832795
+            #define TOL 1e-2
+
+            /* Transform a vector using a quaternion. */
+            vec3 qtransform(vec4 q, vec3 v) {
+                return v + 2.0 * cross(cross(v, q.xyz) + q.w * v, q.xyz);
+            }
+            void main() {
+                /* Choose the intersection that is closer to the viewpoint. Since the 
+                    * view vector points at the sphere and the viewpoint is outside it, 
+                    * the scalar should be minimized. */
+                vec3 p = vec3(v_position*u_displacement, 1.0);
+
+                /* Rotate the sphere. */
+                p = qtransform(u_rotation,p);
+
+                float grid = step(-TOL, -abs(fract((atan(p.x, p.z) * (180.0 / M_PI)+5.0) / 10.0) - 0.5));
+                grid += step(-TOL, -abs(fract((atan(p.y,length(p.xz)) * (180.0 / M_PI) + 5.0) / 10.0) - 0.5));
+                //gl_FragColor = textureCube(u_cubemap, p) + grid;
+                vec4 samp = textureCube(u_cubemap, p);
+                vec4 samp2 = textureCube(u_cubemap, -p);
+                gl_FragColor = samp + samp2*vec4(0.45,0.4,0.5,0) + grid;
+            }
+        </script>
+        <script id="shader-vertex" type="x-shader/x-vertex">
+            attribute vec2 a_position;
+            varying vec2 v_position;
+            void main() {
+                gl_Position = vec4(a_position,0.0,1.0);
+                v_position = a_position;
+            }
+        </script>
+    </head>
+    <body>
+        <canvas id="canvas" width="1024" height="1024"></canvas>
+    </body>
+</html>
