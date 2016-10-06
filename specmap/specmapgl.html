@@ -1,0 +1,47 @@
+<html>
+    <head>
+        <title>Shiny</title>
+        <script type="text/javascript" src="specmapgl.js"></script>
+        <script id="shader-fragment" type="x-shader/x-fragment">
+            precision mediump float;
+            
+            uniform vec3 eyePosition;
+            uniform vec3 lightPosition;
+            uniform vec4 lightColor;
+            uniform sampler2D diffuseSampler;
+            uniform sampler2D normalSampler;
+            uniform sampler2D specularSampler;
+            varying vec2 vTextureCoord;
+
+            void main() {
+                vec3 normalVector = normalize((texture2D(normalSampler,vTextureCoord.xy).xyz)-0.5);
+                normalVector.y *= -1.0;
+
+                vec3 lightDirection = normalize(lightPosition - vec3(vTextureCoord,0.0));
+                vec3 eyeDirection = normalize(eyePosition - vec3(vTextureCoord,0.0));
+                
+                vec4 diffuseColor = texture2D(diffuseSampler,vTextureCoord);
+                float diffuseComponent = clamp(dot(lightDirection,normalVector),0.0,1.0);
+                
+                vec4 specularColor = texture2D(specularSampler,vTextureCoord);
+                float specularComponent = pow(max(dot(reflect(-lightDirection,normalVector),eyeDirection),0.0),specularColor.a);
+                gl_FragColor = diffuseColor*diffuseComponent+specularColor*lightColor*specularComponent;
+                gl_FragColor.a = 1.0;
+            }
+        </script>
+        <script id="shader-vertex" type="x-shader/x-vertex">
+            attribute vec2 aVertexPosition;
+            varying vec2 vTextureCoord;
+            void main() {
+                gl_Position = vec4(aVertexPosition*2.0-1.0,0,1);
+                vTextureCoord = aVertexPosition;
+            }
+        </script>
+    </head>
+    <body>
+        <canvas id="canvas" width="1024" height="1024"></canvas>
+        <img id="normal" src="normal.png" style="display:none"/>
+        <img id="diffuse" src="diffuse.png" style="display:none"/>
+        <img id="specular" src="specular.png" style="display:none"/>
+    </body>
+</html>
