@@ -239,7 +239,7 @@ var make_maze = function(dimensions) {
     var maze = new NDBoolArray(dimensions);
 
     var subdivide = function(maze, start, size,level) {
-        var MIN_SIZE = 15;
+        var MIN_SIZE = 8;
         /*if(level > 3) {
             return;
         }*/
