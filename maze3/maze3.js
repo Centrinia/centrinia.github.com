@@ -5,6 +5,58 @@
 var config = {
 	'key bindings' : [
 		{
+			'binding': 'move forward',
+			'key' : 'w key',
+			'modifiers' : []
+		},
+		{
+			'binding': 'move left',
+			'key' : 'a key',
+			'modifiers' : []
+		},
+		{
+			'binding': 'move backward',
+			'key' : 's key',
+			'modifiers' : []
+		},
+
+		{
+			'binding': 'move right',
+			'key' : 'd key',
+			'modifiers' : []
+		},
+		{
+			'binding': 'look up',
+			'key' : 'up cursor key',
+			'modifiers' : []
+		},
+		{
+			'binding': 'look down',
+			'key' : 'down cursor key',
+			'modifiers' : []
+        },
+		{
+			'binding': 'turn left',
+			'key' : 'left cursor key',
+			'modifiers' : []
+		},
+		{
+			'binding': 'turn right',
+			'key' : 'right cursor key',
+			'modifiers' : []
+		},
+		{
+			'binding': 'roll left',
+			'key' : 'q key',
+			'modifiers' : []
+		},
+		{
+			'binding': 'roll right',
+			'key' : 'e key',
+			'modifiers' : []
+		}
+
+		/*{
 			'binding': 'turn left',
 			'key' : 'left cursor key',
 			'modifiers' : []
@@ -53,7 +105,7 @@ var config = {
 			'binding': 'look down',
 			'key' : 'down cursor key',
 			'modifiers' : ['shift key']
-        }
+        }*/
     ],
     'keycodes' : {
         'modifiers' : {
@@ -62,6 +114,12 @@ var config = {
             18 : 'alt key'
         },
         'keys' : {
+            87 : 'w key',
+            65 : 'a key',
+            83 : 's key',
+            68 : 'd key',
+            81 : 'q key',
+            69 : 'e key',
             37 : 'left cursor key',
             38 : 'up cursor key',
             39 : 'right cursor key',
@@ -69,11 +127,13 @@ var config = {
         }
     },
 	'movement' : {
-		'strafe distance' : 0.15,
-		'forward distance' : 0.15,
-		'backward distance' : 0.13,
+		'strafe distance' : 0.25,
+		'forward distance' : 0.35,
+		'backward distance' : 0.23,
 		'vertical distance' : 0.15,
-		'turn angle' : 6 // In degrees.
+		'roll angle' : 2, // In degrees.
+		'turn angle' : 6, // In degrees.
+		'mouse turn angle' : 0.2 // In degrees.
 	},
 
     'key refresh' : 12,
@@ -179,7 +239,7 @@ var make_maze = function(dimensions) {
     var maze = new NDBoolArray(dimensions);
 
     var subdivide = function(maze, start, size,level) {
-        var MIN_SIZE = 5;
+        var MIN_SIZE = 15;
         /*if(level > 3) {
             return;
         }*/
@@ -317,6 +377,55 @@ var make_polygons = function (maze) {
         }
     });
 
+    /*var positions = [];
+    var normals = [];
+    var indices = [];*/
+
+    /* Make the boundaries. */
+    for(var i=0;i<maze.dimensions.length;i++) {
+
+        for(var j=0;j<2;j++) {
+
+            var start_index = normals.length;
+            var normal = Array(maze.dimensions.length).fill(0);
+            normal[i] = -(j == 0 ? 1 : -1);
+            normals.push(normal);
+            normals.push(normal);
+            normals.push(normal);
+            normals.push(normal);
+
+            var base_position = Array(maze.dimensions.length).fill(0);
+            base_position[i] = j == 0 ? 0 : maze.dimensions[i];
+
+            var k0 = (i+2)%3;
+            var k1 = (i+1)%3;
+            var position = base_position.slice();
+            positions.push(position);
+
+            var position = base_position.slice();
+            position[k0] = maze.dimensions[k0];
+            positions.push(position);
+
+            var position = base_position.slice();
+            position[k1] = maze.dimensions[k1];
+            positions.push(position);
+
+            var position = base_position.slice();
+            position[k0] = maze.dimensions[k0];
+            position[k1] = maze.dimensions[k1];
+            positions.push(position);
+
+            var index = [
+                start_index, start_index+1, start_index+2,
+                start_index+1, start_index+3, start_index+2
+            ];
+            if(j == 0) {
+                index.reverse();
+            }
+            indices.push(index);
+        }
+    }
+
     var flatten = function (arr) {
         var out = [];
         for(var i=0;i<arr.length;i++) {
@@ -423,13 +532,10 @@ Vector.prototype.reflect = function (normal) {
 };
 
 Vector.prototype.rotate_to = function (from,to) {
-    var via = Vector.zeros(this.coords.length);
-    var index = from.abs().min_index();
-    via.set(index, 1);
-
+    var via = Vector.add(from.normalized(), to.normalized());
+    via = via.normalized()
     return this.reflect(Vector.subtract(via, from.normalized())).reflect(Vector.subtract(to.normalized(), via));
-    //return this.reflect(from).reflect(Vector.add(from,to).normalized());
-};
+}
 
 Vector.prototype.normalized = function () {
     var len = Math.sqrt(Vector.dot(this,this));
@@ -502,7 +608,6 @@ var Matrix = function (rows, columns) {
 Matrix.from_rows = function (rows) {
     var c = new Matrix(rows.length, rows[0].length);
 
-    console.log(c);
     for(var i=0;i<c.rows;i++) {
         for(var j=0;j<c.columns;j++) {
             c.coeffs[i * c.columns + j] = rows[i][j];
@@ -566,45 +671,35 @@ Matrix.prototype.get = function (row, column) {
 Matrix.prototype.set = function (row, column, value) {
     this.coeffs[row * this.columns + column] = value;
 };
-Matrix.prototype.rotate_to = function(a,b) {
+
+
+Matrix.prototype.map_columns = function(func) {
     var c = Matrix.copy(this);
     for(var i=0;i<this.columns;i++) {
-        var column = c.get_column(i);
-        column = column.rotate_to(a,b);
-        c.set_column(i, column);
+        c.set_column(i, func(c.get_column(i)));
     }
     return c;
 };
 
-var Player = function (start_position, forward, up) {
-    this.position = start_position.copy();
+var Camera = function (position, forward, up) {
+    this.position = position.copy();
     this.up = up.copy();
     this.forward = forward.copy();
 };
 
-Player.prototype.move_forward = function (amount, test_intersection) {
+Camera.prototype.move_forward = function (amount) {
     var position = Vector.add(this.position, Vector.scale(amount, this.forward));
-    if(test_intersection(position)) {
-        this.position = position;
-    }
 };
-Player.prototype.move_up = function (amount, test_intersection) {
+Camera.prototype.move_up = function (amount) {
     var position = Vector.add(this.position, Vector.scale(amount, this.up));
-    if(test_intersection(position)) {
-        this.position = position;
-    }
 };
 
 
-Player.prototype.move_left = function (amount, test_intersection) {
+Camera.prototype.move_left = function (amount) {
     var left = Vector.cross(this.up, this.forward);
     var position = Vector.add(this.position, Vector.scale(amount, left));
-    if(test_intersection(position)) {
-        this.position = position;
-    }
 };
-
-Player.prototype.look_left = function (angle) {
+Camera.prototype.look_left = function (angle) {
     var cs = Math.cos(angle);
     var sn = Math.sin(angle);
     var left = Vector.cross(this.up, this.forward);
@@ -613,7 +708,16 @@ Player.prototype.look_left = function (angle) {
     this.forward = forward;
 };
 
-Player.prototype.look_up = function (angle) {
+Camera.prototype.roll_left = function (angle) {
+    var cs = Math.cos(angle);
+    var sn = Math.sin(angle);
+    var left = Vector.cross(this.up, this.forward);
+    var up = Vector.add(Vector.scale(cs, this.up), Vector.scale(sn, left));
+
+    this.up = up;
+};
+
+Camera.prototype.look_up = function (angle) {
     var cs = Math.cos(angle);
     var sn = Math.sin(angle);
     var forward = Vector.add(Vector.scale(cs, this.forward), Vector.scale(sn, this.up));
@@ -623,7 +727,7 @@ Player.prototype.look_up = function (angle) {
     this.up = up;
 };
 
-Player.prototype.modelview = function () {
+Camera.prototype.modelview = function () {
     /*def modelview(self):
         left_vector = -normalize(numpy.cross(self.__direction, self.__up_vector))
         up_vector = normalize(numpy.cross(self.__direction, left_vector))
@@ -639,20 +743,144 @@ Player.prototype.modelview = function () {
 
     var MODELVIEW_FORWARD = new Vector([0,0,-1,0]);
     var MODELVIEW_UP = new Vector([0,1,0,0]);
-    var up = this.up.rotate_to(this.forward, MODELVIEW_FORWARD.set_dimension(3));
+    var MODELVIEW_LEFT = new Vector([-1,0,0,0]);
 
-    console.log(Vector.dot(up, MODELVIEW_FORWARD));
     var modelview = Matrix.eye(this.position.dimension()+1);
     for(var i=0;i<this.position.dimension();i++) {
         modelview.set(i, this.position.dimension(), -this.position.get(i));
     }
 
+    //var up = this.up.rotate_to(this.forward, MODELVIEW_FORWARD.set_dimension(3));
+    var up = this.up.reflect(Vector.subtract(MODELVIEW_FORWARD.set_dimension(3), this.forward));
 
-    modelview = modelview.rotate_to(this.forward.set_dimension(4), MODELVIEW_FORWARD);
-    modelview = modelview.rotate_to(up.set_dimension(4), MODELVIEW_UP);
+    var forward = this.forward;
+    modelview = modelview.map_columns(function (column) {
+        return column.reflect(Vector.subtract(MODELVIEW_FORWARD, forward.set_dimension(4)));
+    });
+    if(Vector.dot(up, MODELVIEW_UP.set_dimension(3)) == 1) {
+        var left = Vector.cross(this.up, this.forward);
+        left = left.reflect(Vector.subtract(MODELVIEW_FORWARD.set_dimension(3), this.forward));
+        modelview = modelview.map_columns(function (column) {
+            return column.reflect(Vector.subtract(MODELVIEW_LEFT, left.set_dimension(4)));
+        });
+    } else {
+        modelview = modelview.map_columns(function (column) {
+            return column.reflect(Vector.subtract(MODELVIEW_UP, up.set_dimension(4)));
+        });
+    }
+
 
     return modelview;
 };
+
+var Player = function(position, forward, up, maze) {
+    this.camera = new Camera(position, forward, up);
+    this.momentum = new Vector.zeros(3);
+    this.maze = maze;
+};
+
+Player.prototype.move_forward = function(amount) {
+    this.momentum = Vector.add(this.momentum, Vector.scale(amount, this.camera.forward));
+};
+
+Player.prototype.move_up = function(amount) {
+    this.momentum = Vector.add(this.momentum, Vector.scale(amount, this.camera.up));
+};
+
+Player.prototype.move_left = function(amount) {
+    var left = Vector.cross(this.camera.up, this.camera.forward);
+    this.momentum = Vector.add(this.momentum, Vector.scale(amount, left));
+};
+
+Player.prototype.look_up = function(amount) {
+    this.camera.look_up(amount);
+};
+
+Player.prototype.look_left = function(angle) {
+    this.camera.look_left(angle);
+};
+
+Player.prototype.roll_left = function(angle) {
+    this.camera.roll_left(angle);
+};
+
+Player.prototype.advance = function(time) {
+    var MOMENTUM_DECAY = 0.1;
+    //console.log(Vector.dot(this.momentum,this.momentum));
+    if(Vector.dot(this.momentum,this.momentum) > 1e-3) {
+
+    /*Vector3 new_position = _camera._position + _momentum;
+
+    bool hit_wall = false;
+    for (int axis = 0; axis < 3; axis++) {
+      double diff = new_position[axis] - _cube._position[axis];
+      if ((diff + RADIUS).abs() > _cube._radius && !_noclipping) {
+        int direction = diff + RADIUS > 0 ? 1 : 0;
+        if (_cube._hasSide[axis * 2 + direction]) {
+          hit_wall = true;
+          Vector3 normal = new Vector3.zero();
+          normal[axis] = 1.0 - direction * 2.0;
+          _momentum.reflect(normal);
+          _momentum *= FRICTION;
+          new_position = _camera._position + _momentum;
+        } else {
+          _cube = _cube._neighbors[axis * 2 + direction];
+        }
+      }
+    }*/
+
+        var new_position = Vector.add(this.camera.position, Vector.scale(time, this.momentum));
+        //this.camera.position = Vector.add(this.camera.position, Vector.scale(time, this.momentum));
+        /*console.log(idx);
+        if(state['maze'].get(idx) != 0) {
+            return false;
+        }
+        for(var i=0;i<idx.length;i++) {
+            if(idx[i] >= state['maze'].dimensions[i]) {
+                return false;
+            }
+            if(0 > idx[i]) {
+                return false;
+            }
+        }*/
+ 
+        var CUBE_RADIUS = 0.5;
+        var RADIUS = 0.1;
+        var max_index = null;
+        var max_diff = null;
+        for(var i=0;i<3;i++) {
+            var diff = new_position.coords[i] - (Math.floor(new_position.coords[i]) + 0.5);
+            if(Math.abs(diff) + RADIUS > CUBE_RADIUS) {
+                if(max_index == null || Math.abs(diff) < max_diff) {
+                    max_diff = Math.abs(diff);
+                    max_index = i;
+                }
+            }
+        }
+        if(max_index != null) {
+            i = max_index;
+            var diff = new_position.coords[i] - (Math.floor(new_position.coords[i]) + 0.5);
+            //console.log(new_position.coords, diff);
+            if(Math.abs(diff) + RADIUS > CUBE_RADIUS) {
+                var direction = diff > 0 ? 1 : 0;
+                var adjacent = new_position.coords.map(Math.floor);
+                adjacent[i] += 2*direction-1;
+                if(adjacent[i] < 0 || this.maze.dimensions[i] <= adjacent[i] || this.maze.get(adjacent) != 0) {
+                    var normal = Vector.zeros(3);
+                    normal.coords[i] = direction*2-1;
+                    this.momentum = this.momentum.reflect(normal);
+                    new_position = Vector.add(this.camera.position, Vector.scale(time, this.momentum));
+                }
+            }
+        }
+
+        this.camera.position = new_position;
+        this.momentum = Vector.scale(Math.pow(MOMENTUM_DECAY,time), this.momentum);
+
+    }
+};
+
+
 var perspective_matrix = function(zN,zF,fov, aspect) {
     /*var r = width / 2;
     var t = height / 2;
@@ -751,8 +979,6 @@ $(document).ready(function () {
 
             state['polygons'] = polygons;
 
-            console.log(polygons['normals']);
-            console.log(polygons['indices']);
             program['vertex position buffer'] = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, program['vertex position buffer']);
             gl.bufferData(gl.ARRAY_BUFFER, polygons['positions'], gl.STATIC_DRAW);
@@ -770,12 +996,21 @@ $(document).ready(function () {
             gl.clearColor(0,0,0,1);
             setInterval(redraw_loop, 1000/config['fps']);
 
-            var ASPECT = 4/3;
-            gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_projection'], false, new Float32Array(perspective_matrix(0.1, 100, 80*Math.PI/180, ASPECT).transpose().coeffs));
+            resize_window(canvas.width, canvas.height);
+            /*var ASPECT = canvas.width/canvas.height;
+            gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_projection'], false, new Float32Array(perspective_matrix(0.1, 100, 80*Math.PI/180, ASPECT).transpose().coeffs));*/
         }).fail(function () {
             throw new Error('Unable to load shaders.');
         });
     }
+
+    var resize_window = function(width, height) {
+        canvas.width = width;
+        canvas.height = height;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        var ASPECT = canvas.width/canvas.height;
+        gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_projection'], false, new Float32Array(perspective_matrix(0.1, 100, 80*Math.PI/180, ASPECT).transpose().coeffs));
+    };
 
     var redraw_loop = function () {
         var program = state['shader program'];
@@ -790,15 +1025,19 @@ $(document).ready(function () {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, program['index buffer']);
 
         gl.drawElements(gl.TRIANGLES, state['polygons']['vertex count'], gl.UNSIGNED_SHORT, 0);
-        //gl.drawElements(gl.TRIANGLES, state['polygons']['vertex count'], gl.UNSIGNED_INT, 0);
-        //gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        state['player'].advance(1/config['fps']);
     };
     //var maze_size = [128,128,128];
-    //var maze_size = [64,64,7];
+    //var maze_size = [128,128,1];
+    var maze_size = [64,64,5];
     //var maze_size = [32,32,32];
-    var maze_size = [32,32,1];
+    //var maze_size = [16,16,16];
+    //var maze_size = [20,20,20];
+    //var maze_size = [32,32,1];
     //var maze_size = [5,5,5];
     var maze = make_maze(maze_size);
+
     //var f = new Vector([0,0,1]);
     /*var f = new Vector([0,1,0]);
     var t = new Vector([0,0,-1]);
@@ -806,11 +1045,119 @@ $(document).ready(function () {
     console.log(x.rotate_to(f, t), x, f, t);*/
     //console.log(x.reflect(t));
     var state = {};
-    //state['player'] = new Player(new Vector([0,0,0]), new Vector([0,0,-1]), new Vector([0,1,0]));
-    state['player'] = new Player(Vector.scale(1/2,new Vector(maze_size)), new Vector([1,0,0]), new Vector([0,0,1]));
+    state['maze'] = maze;
+    state['player'] = new Player(Vector.scale(1/2,new Vector(maze_size)), new Vector([0,-1,0]), new Vector([0,0,1]), maze);
     init_gl(maze);
+    var test_intersection = function(position) {
+        var idx = position.coords.map(Math.floor);
+        console.log(idx);
+        if(state['maze'].get(idx) != 0) {
+            return false;
+        }
+        for(var i=0;i<idx.length;i++) {
+            if(idx[i] >= state['maze'].dimensions[i]) {
+                return false;
+            }
+            if(0 > idx[i]) {
+                return false;
+            }
+        }
+        return true;
+    };
+    do {
+        for(var i=0;i<state['player'].camera.position.coords.length;i++) {
+            state['player'].camera.position.coords[i] = Math.floor(Math.random() * state['maze'].dimensions[i]) + 0.5;
+        }
+    } while(!test_intersection(state['player'].camera.position));
 
     (function () {
+        canvas.requestPointerLock = canvas.requestPointerLock ||
+                                    canvas.mozRequestPointerLock ||
+                                    canvas.webkitRequestPointerLock;
+        document.exitPointerLock = document.exitPointerLock    ||
+                                    document.mozExitPointerLock ||
+                                    document.webkitExitPointerLock;
+
+        var oldWidth = canvas.width;
+        var oldHeight = canvas.height;
+        $(canvas).click(function (event) {
+            function launchIntoFullscreen(element) {
+                if(element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else if(element.mozRequestFullScreen) {
+                    element.mozRequestFullScreen();
+                } else if(element.webkitRequestFullscreen) {
+                    element.webkitRequestFullscreen();
+                } else if(element.msRequestFullscreen) {
+                    element.msRequestFullscreen();
+                }
+            }
+            function exitFullscreen(element) {
+                if (element.exitFullscreen) {
+                    element.exitFullscreen();
+                } else if (element.msExitFullscreen) {
+                    element.msExitFullscreen();
+                } else if (element.mozCancelFullScreen) {
+                    element.mozCancelFullScreen();
+                } else if (element.webkitExitFullscreen) {
+                    element.webkitExitFullscreen();
+                }
+            };
+            var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
+            if(fullscreenElement == null) {
+                launchIntoFullscreen(canvas);
+            } else {
+                exitFullscreen(canvas);
+            }
+
+        });
+        var handle_fullscreen = function () {
+            var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
+            if(fullscreenElement != null) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                canvas.requestPointerLock();
+            } else {
+                console.log(oldWidth, oldHeight);
+                canvas.width = oldWidth;
+                canvas.height = oldHeight;
+                document.exitPointerLock();
+            }
+            resize_window(canvas.width, canvas.height);
+        };
+
+        $(document).on('fullscreenchange',handle_fullscreen);
+        $(document).on('mozfullscreenchange',handle_fullscreen);
+        $(document).on('webkitfullscreenchange',handle_fullscreen);
+        var handle_mousemove = function (event) {
+            var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+            var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+            var change = new Vector([movementX, movementY]);
+
+            console.log(change.coords);
+            if(change.coords[0] != 0) {
+                state['player'].look_left(-change.coords[0] * config['movement']['mouse turn angle'] * 2 * Math.PI / 360);
+            }
+            if(change.coords[1] != 0) {
+                state['player'].look_up(-change.coords[1] * config['movement']['mouse turn angle'] * 2 * Math.PI / 360);
+            }
+        };
+
+        var handle_pointerlock = function(event) {
+            if( document.pointerLockElement === canvas ||
+                document.mozPointerLockElement === canvas ||
+                document.webkitPointerLockElement === canvas
+               ) {
+                console.log('enter pointerlock');
+                document.addEventListener('mousemove',handle_mousemove, false);
+            } else {
+                document.removeEventListener('mousemove',handle_mousemove, false);
+                console.log('exit pointerlock');
+            }
+        };
+        $(document).on('pointerlockchange',handle_pointerlock);
+        $(document).on('mozpointerlockchange',handle_pointerlock);
+        $(document).on('webkitpointerlockchange',handle_pointerlock);
 
         var keycode_queue = [];
         $(window).keyup(function (event) {
@@ -832,7 +1179,6 @@ $(document).ready(function () {
             var modifiers = [];
             var keys = [];
             keycode_queue.forEach(function (keycode) {
-                //console.log(keycode);
                 var key = config['keycodes']['keys'][keycode];
                 if(key) {
                     keys.push(key);
@@ -852,33 +1198,30 @@ $(document).ready(function () {
 					}
 				}
 			});
-            var test_intersection = function(position) {
-                return true;
-            };
 			bindings.forEach(function (binding) {
 			switch(binding['binding']) {
 				case 'move left': {
-						state['player'].move_left(config['movement']['strafe distance'], test_intersection);
+						state['player'].move_left(config['movement']['strafe distance']);
 				}
 				break;
 				case 'move right': {
-						state['player'].move_left(-config['movement']['strafe distance'], test_intersection);
+						state['player'].move_left(-config['movement']['strafe distance']);
 				}
 				break;
 				case 'move up': {
-						state['player'].move_up(config['movement']['vertical distance'], test_intersection);
+						state['player'].move_up(config['movement']['vertical distance']);
 				}
 				break;
 				case 'move down': {
-						state['player'].move_up(-config['movement']['vertical distance'], test_intersection);
+						state['player'].move_up(-config['movement']['vertical distance']);
 				}
 				break;
 				case 'move forward': {
-						state['player'].move_forward(config['movement']['forward distance'], test_intersection);
+						state['player'].move_forward(config['movement']['forward distance']);
 				}
 				break;
 				case 'move backward': {
-						state['player'].move_forward(-config['movement']['backward distance'], test_intersection);
+						state['player'].move_forward(-config['movement']['backward distance']);
 				}
 				break;
 				case 'turn left': {
@@ -887,6 +1230,13 @@ $(document).ready(function () {
 				break;
 				case 'turn right': {
 						state['player'].look_left(-config['movement']['turn angle'] * 2 * Math.PI / 360);
+				}
+				case 'roll left': {
+						state['player'].roll_left(config['movement']['roll angle'] * 2 * Math.PI / 360);
+				}
+				break;
+				case 'roll right': {
+						state['player'].roll_left(-config['movement']['roll angle'] * 2 * Math.PI / 360);
 				}
 				break;
 				case 'look up': {
@@ -900,10 +1250,7 @@ $(document).ready(function () {
 				}
 			});
 
-            //console.log(state['player'].modelview().coeffs);
-
-            console.log(state['player'].forward.coords, state['player'].up.coords);
-            gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_modelview'], false, new Float32Array(state['player'].modelview().transpose().coeffs));
+            gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_modelview'], false, new Float32Array(state['player'].camera.modelview().transpose().coeffs));
         };
         setInterval(handle_input, 1000/config['key refresh']);
     }) ();
