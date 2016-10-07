@@ -144,8 +144,6 @@ Math.mod = function (x,y) {
 
 $(document).ready(function() {
 	var canvas_name = 'canvas';
-	var canvas = document.getElementById(canvas_name);
-	var context = canvas.getContext('2d');
 
 	var width = 4;
 	var height = 4;
@@ -233,6 +231,7 @@ $(document).ready(function() {
 	var render_hypercube = function() {
 		var dimensions = ndmv.rows;
 		var vertex_count = 1<<dimensions;
+        var diameter = 1 / Math.sqrt(dimensions)
 		for(var i=0;i<vertex_count;i++)
 		{
 			var v0 = new Array(2);
@@ -241,6 +240,7 @@ $(document).ready(function() {
 				v0[l] = 0;
 				for(var j=0;j<ndmv.columns;j++) {
 					var t = ((i >> j) & 1) * 2 - 1;
+                    t *= diameter;
 					v0[l] += t * ndmv.data[j+l*ndmv.columns];
 				}
 			}
@@ -250,9 +250,9 @@ $(document).ready(function() {
 					continue;
 				}
 				
-				var c = 1;
+				var c = diameter;
 				if(((i >> j) & 1) == 0) {
-					c = -1;
+					c = -diameter;
 				}
 		
 				for(var l=0;l<2;l++) {
@@ -319,7 +319,20 @@ $(document).ready(function() {
 		'hypercube': render_hypercube,
 		'simplex': render_simplex
 	};
+
+    var context;
+    var canvas;
+	//var canvas = document.getElementById(canvas_name);
+    var drawing_buffer = 1;
+    var buffers = Array(2);
+    buffers[0] = document.getElementById('canvas');
+    buffers[1] = document.getElementById('canvas2');
+    
+
 	var redraw = function(renderer) {
+        canvas = buffers[drawing_buffer];
+        context = canvas.getContext('2d');
+
 		// Clear the canvas.
 		context.clearRect(0,0,canvas.width,canvas.height);
 		context.save();
@@ -333,6 +346,14 @@ $(document).ready(function() {
 		if(basis_vectors) {
 			draw_basis();
 		}
+ 
+
+        context = buffers[1-drawing_buffer].getContext('2d');
+		context.clearRect(0,0,canvas.width,canvas.height);
+        context.drawImage(buffers[drawing_buffer], 0,0);
+        /*buffers[drawing_buffer].style.visibility='visible';
+        buffers[1-drawing_buffer].style.visibility='hidden';
+        drawing_buffer = 1 - drawing_buffer;*/
 	};
 
 	var last_time = 0;
