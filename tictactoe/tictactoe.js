@@ -302,15 +302,17 @@ $(document).ready(function() {
 			try {
 				makeMove(moves[player[0]]['row'],moves[player[0]]['column'],positions,player[0]);
 				drawBoard(canvas,context,positions);
-				if(hasWon(positions[player[0]])) {
-					alert(player[0] + ' has won!');
-					clearBoard();
-				} else if((positions['X'] | positions['O'] & 0x1ff) == 0x1ff) {
-					clearBoard();
-				} else {
-					moves[player[0]] = null;
-					player.reverse();
-				}
+                setTimeout(function() {
+                    if(hasWon(positions[player[0]])) {
+                        alert(player[0] + ' has won!');
+                        clearBoard();
+                    } else if((positions['X'] | positions['O'] & 0x1ff) == 0x1ff) {
+                        clearBoard();
+                    } else {
+                        moves[player[0]] = null;
+                        player.reverse();
+                    }
+                }, timeout);
 			} catch(e) {}
 		}
 
