@@ -1,0 +1,52 @@
+#game {
+  padding: 8em;
+  clear: both;
+}
+
+.playerMenu {
+  margin:0;
+  padding:0;
+}
+
+.playerMenu li {
+  list-style:none;
+  float:left;
+  font:12px Arial, Helvetica, sans-serif #111;
+}
+
+.playerMenu li a:link, .playerMenu li a:visited {
+  display:block;
+  text-decoration:none;
+  background-color:#09F;
+  padding: 0.5em 2em;
+  margin:0;
+  border-right: 1px solid #fff;
+  color:#111;
+}
+
+.playerMenu li a:hover {
+  background-color:#0CF;
+}
+
+.playerMenu li ul {
+  position:absolute;
+  visibility:hidden;
+  border-top:1px solid #fff;
+  margin:0;
+  padding:0;
+}
+
+.playerMenu li ul li {
+  display:inline;
+  float:none;
+}
+
+.playerMenu li ul li a:link, .playerMenu li ul li a:visited {
+  background-color:#09F;
+  width:auto;
+}
+
+.playerMenu li ul li a:hover {
+  background-color:#0CF;
+}
+    

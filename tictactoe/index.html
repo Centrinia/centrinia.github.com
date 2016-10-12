@@ -1,8 +1,77 @@
-<html>
-		<script src='//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js' type='text/javascript'></script>
-		  <script src='tictactoe.js' type='text/javascript'></script>
-		  <body>
-					 <canvas id='canvas' width='600' height='600'></canvas>
-		  </body>
-</html>
 
+<html>
+<head>
+<link rel="stylesheet" href="tictactoe.css"/>
+<script src = '//ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js' type = 'text/javascript'> </script>
+<script type='text/javascript' src='tictactoe.js'></script>
+</head>
+<body>
+<ul class='playerMenu'>
+        <li class='playerMenu'>
+        <a class='playerMenu' href='#' id='xplayer'>
+            <span class='playerMenu'>
+                Player X:
+                <span class='playerMenu' id='xplayerdisp'>
+                </span>
+            </span>
+        </a>
+        <ul class='playerMenu'>
+            <li class='playerMenu'>
+                <a href='#' class='menuItem' side='X' player='computer'>Computer</a>
+            </li>
+            <li class='playerMenu'>
+                <a href='#' class='menuItem' side='X' player='human'>Human</a>
+            </li>
+        </ul>
+    </li>
+    <li class='playerMenu'>
+        <a class='playerMenu' href='#' id='oplayer'>
+            <span class='playerMenu'>
+                Player O:
+                <span class'playerMenu' id='oplayerdisp'>
+                </span>
+            </span>
+        </a>
+        <ul class='playerMenu'>
+            <li class='playerMenu'>
+                <a href='#' class='menuItem' side='O' player='computer'>Computer</a>
+            </li>
+            <li class='playerMenu'>
+                <a href='#' class='menuItem' side='O' player='human'>Human</a>
+            </li>
+        </ul>
+    </li>
+</ul>
+<div id='game'>
+    <canvas id='canvas' width='600' height='600'>
+    </canvas>
+</div>
+</body>
+</html>
+<!--
+<ul .playerMenu>
+  <li class='playerMenu'>
+    <a href="#" #xplayer>
+      <span class='playerMenu'>
+        _{MsgPlayer} X:
+        <span #xplayerdisp>
+    <ul class='playerMenu'>
+      <li class='playerMenu'>
+        <a href="#" .menuItem side="X" player="computer">_{MsgComputer}
+      <li class='playerMenu'>
+        <a href="#" .menuItem side="X" player="human">_{MsgHuman}
+  <li class='playerMenu'>
+    <a href="#" #oplayer>
+      <span class='playerMenu'>
+        _{MsgPlayer} O:
+        <span #oplayerdisp>
+    <ul class='playerMenu'>
+      <li class='playerMenu'>
+        <a href="#" .menuItem side="O" player="computer">_{MsgComputer}
+      <li class='playerMenu'>
+        <a href="#" .menuItem side="O" player="human">_{MsgHuman}
+
+<div #game>
+  <canvas #canvas width=#{canvasSize} height=#{canvasSize}>
+
+-->
