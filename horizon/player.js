@@ -14,6 +14,16 @@ Array.prototype.equals = function (b) {
 	}
 	return true;
 }
+
+if(!Array.prototype.fill) {
+Array.prototype.fill = function(x) {
+    for(var i=0;i<this.length;i++) {
+        this[i] = x;
+    }
+    return this;
+}
+}
+
 function ceil_div(a, b) {
     return ~~((a+b-1) / b);
 }

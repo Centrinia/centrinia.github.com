@@ -205,6 +205,14 @@ var make_polygons = function() {
 $(document).ready(function () {
     var canvas = document.getElementById('canvas');
     var gl = canvas.getContext('webgl');
+    if(!gl) {
+        gl = canvas.getContext('experimental-webgl');
+    }
+    if(!gl) {
+        console.log('WebGL not available');
+        alert('WebGL not available');
+        return;
+    }
 
     var init_gl = function() {
 
