@@ -135,7 +135,7 @@ var config = {
 		'turn angle' : 6, // In degrees.
 		'mouse turn angle' : 0.2 // In degrees.
 	},
-    'momentum decay': 0.8,
+    'momentum decay': 0.7,
     'animation duration': 3,
     'key refresh' : 12,
     'fps': 35
