@@ -135,6 +135,7 @@ var config = {
 		'turn angle' : 6, // In degrees.
 		'mouse turn angle' : 0.2 // In degrees.
 	},
+    'near plane': 0.5,
     'momentum decay': 0.7,
     'animation duration': 3,
     'key refresh' : 12,
@@ -142,39 +143,15 @@ var config = {
 };
 
 var make_polygons = function() {
-    var normals = [
-        [0,1,0],
-        [0,1,0],
-        [0,1,0],
-        [0,1,0],
-        [0,1,0]
-    ];
-
-    var t = 0;
     var positions = [
-        [1,0,0,t],
-        [0,0,1,t],
-        [-1,0,0,t],
-        [0,0,-1,t],
+        [1,0,1,0],
+        [-1,0,1,0],
+        [-1,0,-1,0],
+        [1,0,-1,0],
         [0,1,0,1]
     ];
     var indices = [
-/*        [4,0,1],
-        [4,1,2],
-        [4,2,3],
-        [4,3,0],
-
-        [0,4,1],
-        [1,4,2],
-        [2,4,3],
-        [3,4,0]
-*/
         [0,1,4],
-        [0,4,1],
-
-
-        //[0,1,2],
-        //[2,1,3]
     ];
 
     var flatten = function (arr) {
@@ -188,34 +165,30 @@ var make_polygons = function() {
     };
 
 
-    /*vertices = [].concat.apply([], vertices);
-    vertices = [].concat.apply([], vertices);*/
     indices = flatten(indices);
     positions = flatten(positions);
-    normals = flatten(normals);
 
     return {
         'vertex count': indices.length,
         'indices': new Uint16Array(indices),
         'positions': new Float32Array(positions),
-        'normals': new Float32Array(normals)
     };
 };
 
 $(document).ready(function () {
     var canvas = document.getElementById('canvas');
+    var experimental_gl = false;
     var gl = canvas.getContext('webgl');
     if(!gl) {
         gl = canvas.getContext('experimental-webgl');
+        experimental_gl = true;
     }
     if(!gl) {
         console.log('WebGL not available');
         alert('WebGL not available');
         return;
     }
-
     var init_gl = function() {
-
         $.when.apply(null, [
             $.ajax('shaders/vertex.glsl'),
             $.ajax('shaders/fragment.glsl'),
@@ -234,6 +207,17 @@ $(document).ready(function () {
                 }
                 return shader;
             }
+
+            var defines;
+
+            if(experimental_gl) {
+                defines = '#define INTEGER_MATH 0\n';
+            } else {
+                defines = '#define INTEGER_MATH 1\n';
+            }
+
+            vertex[0] = defines + vertex[0];
+            fragment[0] = defines + fragment[0];
 
             program.id = gl.createProgram();
 
@@ -274,12 +258,6 @@ $(document).ready(function () {
             }
             return program;
         }).then(function (program) {
-
-            /* Fill the vertex buffer. */
-
-            gl.enable(gl.DEPTH_TEST);
-            gl.enable(gl.CULL_FACE);
-
             state['shader program'] = program;
             var polygons = make_polygons();
 
@@ -297,33 +275,29 @@ $(document).ready(function () {
             gl.enable(gl.BLEND);
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+            var texture = gl.createTexture();
+            program['texture'] = texture;
 
             var image = new Image();
-            var texture = gl.createTexture();
             image.onload = function() {
+                gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, texture);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
                 gl.generateMipmap(gl.TEXTURE_2D);
-                gl.activeTexture(gl.TEXTURE0);
                 gl.uniform1i(program['uniform locations']['u_sampler'], 0);
             };
             image.src = 'textures/birds.png';
 
-            program['texture'] = texture;
-
-
-            //gl.clearColor(0,0,0,1);
             gl.clearColor(1,1,1,1);
-            //gl.clearColor(0,0,0,1);
             setInterval(redraw_loop, 1000/config['fps']);
 
             resize_window(canvas.width, canvas.height);
-            /*var ASPECT = canvas.width/canvas.height;
-            gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_projection'], false, new Float32Array(perspective_matrix(0.1, 100, 80*Math.PI/180, ASPECT).transpose().coeffs));*/
 
             state['tickcount'] = 0;
+            console.log(program);
+            handler();
         }).fail(function () {
             throw new Error('Unable to load shaders.');
         });
@@ -334,7 +308,7 @@ $(document).ready(function () {
         canvas.height = height;
         gl.viewport(0, 0, canvas.width, canvas.height);
         var ASPECT = canvas.width/canvas.height;
-        gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_projection'], false, new Float32Array(perspective_matrix(0.1, null, 80*Math.PI/180, ASPECT).transpose().coeffs));
+        gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_projection'], false, new Float32Array(perspective_matrix(config['near plane'], null, 80*Math.PI/180, ASPECT).transpose().coeffs));
     };
 
     var redraw_loop = function () {
@@ -343,11 +317,16 @@ $(document).ready(function () {
         var offset = ~~(state['tickcount'] / config['animation duration']) % 4;
         gl.uniform1i(state['shader program']['uniform locations']['u_offset'], offset);
         state['tickcount']++;
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
         gl.bindBuffer(gl.ARRAY_BUFFER, program['vertex position buffer']);
         gl.vertexAttribPointer(program['attribute locations']['a_position'], 4, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, program['index buffer']);
+
+        gl.bindTexture(gl.TEXTURE_2D, program['texture']);
+        gl.activeTexture(gl.TEXTURE0);
 
         gl.drawElements(gl.TRIANGLES, state['polygons']['vertex count'], gl.UNSIGNED_SHORT, 0);
 
@@ -355,70 +334,13 @@ $(document).ready(function () {
     };
 
     var state = {};
-    //state['player'] = new Player(Vector.scale(1/2,new Vector([0,0,0])), new Vector([0,-1,0]), new Vector([0,0,1]));
     state['player'] = new Player(new Vector([0,-5,0]), new Vector([0,0,1]), new Vector([0,-1,0]));
     init_gl();
 
-    (function () {
-        canvas.requestPointerLock = canvas.requestPointerLock ||
-                                    canvas.mozRequestPointerLock ||
-                                    canvas.webkitRequestPointerLock;
-        document.exitPointerLock = document.exitPointerLock    ||
-                                    document.mozExitPointerLock ||
-                                    document.webkitExitPointerLock;
-
+    var handler = function () {
         var oldWidth = canvas.width;
         var oldHeight = canvas.height;
-        $(canvas).click(function (event) {
-            function launchIntoFullscreen(element) {
-                if(element.requestFullscreen) {
-                    element.requestFullscreen();
-                } else if(element.mozRequestFullScreen) {
-                    element.mozRequestFullScreen();
-                } else if(element.webkitRequestFullscreen) {
-                    element.webkitRequestFullscreen();
-                } else if(element.msRequestFullscreen) {
-                    element.msRequestFullscreen();
-                }
-            }
-            function exitFullscreen(element) {
-                if (element.exitFullscreen) {
-                    element.exitFullscreen();
-                } else if (element.msExitFullscreen) {
-                    element.msExitFullscreen();
-                } else if (element.mozCancelFullScreen) {
-                    element.mozCancelFullScreen();
-                } else if (element.webkitExitFullscreen) {
-                    element.webkitExitFullscreen();
-                }
-            };
-            var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
-            if(fullscreenElement == null) {
-                launchIntoFullscreen(canvas);
-            } else {
-                exitFullscreen(canvas);
-            }
 
-        });
-
-        var handle_fullscreen = function () {
-            var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
-            if(fullscreenElement != null) {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                canvas.requestPointerLock();
-            } else {
-                console.log(oldWidth, oldHeight);
-                canvas.width = oldWidth;
-                canvas.height = oldHeight;
-                document.exitPointerLock();
-            }
-            resize_window(canvas.width, canvas.height);
-        };
-
-        $(document).on('fullscreenchange',handle_fullscreen);
-        $(document).on('mozfullscreenchange',handle_fullscreen);
-        $(document).on('webkitfullscreenchange',handle_fullscreen);
         var handle_mousemove = function (event) {
             var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
             var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
@@ -432,21 +354,84 @@ $(document).ready(function () {
             }
         };
 
-        var handle_pointerlock = function(event) {
-            if( document.pointerLockElement === canvas ||
-                document.mozPointerLockElement === canvas ||
-                document.webkitPointerLockElement === canvas
-               ) {
-                console.log('enter pointerlock');
-                document.addEventListener('mousemove',handle_mousemove, false);
-            } else {
-                document.removeEventListener('mousemove',handle_mousemove, false);
-                console.log('exit pointerlock');
-            }
-        };
-        $(document).on('pointerlockchange',handle_pointerlock);
-        $(document).on('mozpointerlockchange',handle_pointerlock);
-        $(document).on('webkitpointerlockchange',handle_pointerlock);
+        canvas.requestPointerLock = canvas.requestPointerLock ||
+                                    canvas.mozRequestPointerLock ||
+                                    canvas.webkitRequestPointerLock;
+        document.exitPointerLock = document.exitPointerLock    ||
+                                    document.mozExitPointerLock ||
+                                    document.webkitExitPointerLock;
+
+
+        if(canvas.requestPointerLock) {
+            $(canvas).click(function (event) {
+                function launchIntoFullscreen(element) {
+                    if(element.requestFullscreen) {
+                        element.requestFullscreen();
+                    } else if(element.mozRequestFullScreen) {
+                        element.mozRequestFullScreen();
+                    } else if(element.webkitRequestFullscreen) {
+                        element.webkitRequestFullscreen();
+                    } else if(element.msRequestFullscreen) {
+                        element.msRequestFullscreen();
+                    }
+                }
+                function exitFullscreen(element) {
+                    if (element.exitFullscreen) {
+                        element.exitFullscreen();
+                    } else if (element.msExitFullscreen) {
+                        element.msExitFullscreen();
+                    } else if (element.mozCancelFullScreen) {
+                        element.mozCancelFullScreen();
+                    } else if (element.webkitExitFullscreen) {
+                        element.webkitExitFullscreen();
+                    }
+                };
+                var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
+                if(fullscreenElement == null) {
+                    launchIntoFullscreen(canvas);
+                } else {
+                    exitFullscreen(canvas);
+                }
+
+            });
+
+            var handle_fullscreen = function () {
+                var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
+                if(fullscreenElement != null) {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                    canvas.requestPointerLock();
+                } else {
+                    console.log(oldWidth, oldHeight);
+                    canvas.width = oldWidth;
+                    canvas.height = oldHeight;
+                    document.exitPointerLock();
+                }
+                resize_window(canvas.width, canvas.height);
+            };
+
+            $(document).on('fullscreenchange',handle_fullscreen);
+            $(document).on('mozfullscreenchange',handle_fullscreen);
+            $(document).on('webkitfullscreenchange',handle_fullscreen);
+
+            var handle_pointerlock = function(event) {
+                if( document.pointerLockElement === canvas ||
+                    document.mozPointerLockElement === canvas ||
+                    document.webkitPointerLockElement === canvas
+                   ) {
+                    console.log('enter pointerlock');
+                    document.addEventListener('mousemove',handle_mousemove, false);
+                } else {
+                    document.removeEventListener('mousemove',handle_mousemove, false);
+                    console.log('exit pointerlock');
+                }
+            };
+            $(document).on('pointerlockchange',handle_pointerlock);
+            $(document).on('mozpointerlockchange',handle_pointerlock);
+            $(document).on('webkitpointerlockchange',handle_pointerlock);
+
+        }
+
 
         var keycode_queue = [];
         $(window).keyup(function (event) {
@@ -520,6 +505,7 @@ $(document).ready(function () {
 				case 'turn right': {
 						state['player'].look_left(-config['movement']['turn angle'] * 2 * Math.PI / 360);
 				}
+                break;
 				case 'roll left': {
 						state['player'].roll_left(config['movement']['roll angle'] * 2 * Math.PI / 360);
 				}
@@ -542,6 +528,6 @@ $(document).ready(function () {
             gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_modelview'], false, new Float32Array(state['player'].camera.modelview().transpose().coeffs));
         };
         setInterval(handle_input, 1000/config['key refresh']);
-    }) ();
+    };
 });
 

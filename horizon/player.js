@@ -226,8 +226,11 @@ Matrix.prototype.map_columns = function(func) {
 
 var Camera = function (position, forward, up) {
     this.position = position.copy();
-    this.up = up.copy();
-    this.forward = forward.copy();
+    this.forward = forward.normalized();
+    this.up = up.normalized();
+
+    var left = Vector.cross(this.up, this.forward);
+    this.up = Vector.cross(this.forward, left);
 };
 
 Camera.prototype.move_forward = function (amount) {
@@ -247,7 +250,6 @@ Camera.prototype.look_left = function (angle) {
     var sn = Math.sin(angle);
     var left = Vector.cross(this.up, this.forward);
     var forward = Vector.add(Vector.scale(cs, this.forward), Vector.scale(sn, left));
-
     this.forward = forward;
 };
 
@@ -293,7 +295,6 @@ Camera.prototype.modelview = function () {
         modelview.set(i, this.position.dimension(), -this.position.get(i));
     }
 
-    //var up = this.up.rotate_to(this.forward, MODELVIEW_FORWARD.set_dimension(3));
     var up = this.up.reflect(Vector.subtract(MODELVIEW_FORWARD.set_dimension(3), this.forward));
 
     var forward = this.forward;
@@ -349,7 +350,6 @@ Player.prototype.roll_left = function(angle) {
 
 Player.prototype.advance = function(time) {
     var MOMENTUM_DECAY = config['momentum decay'];
-    //console.log(Vector.dot(this.momentum,this.momentum));
     if(Vector.dot(this.momentum,this.momentum) > 1e-3) {
         var new_position = Vector.add(this.camera.position, Vector.scale(time, this.momentum));
 

@@ -62,6 +62,13 @@ function randomNormal(mu, sigma) {
 window.onload = (function () {
 	var canvas = document.getElementById('canvas');
 	var context = canvas.getContext('webgl');
+    if(!context) {
+        context = canvas.getContext('experimental-webgl');
+    }
+    if(!context) {
+        alert('WebGL unavailable.');
+        return;
+    }
     var flameImage = new Array(canvas.width*canvas.height);
 
 
