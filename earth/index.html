@@ -10,7 +10,8 @@
             uniform samplerCube u_cubemap;
 
             #define M_PI 3.1415926535897932384626433832795
-            #define TOL 1e-2
+            #define GRID_INTERVAL 10.0
+            #define GRID_WIDTH 6e-3
 
             /* Transform a vector using a quaternion. */
             vec3 qtransform(vec4 q, vec3 v) {
@@ -52,8 +53,12 @@
                 /* Rotate the sphere. */
                 p = qtransform(u_rotation,p);
 
-                float grid = step(-TOL, -abs(fract((atan(p.x, p.z) * (180.0 / M_PI)+5.0) / 10.0) - 0.5));
-                grid += step(-TOL, -abs(fract((atan(p.y,length(p.xz)) * (180.0 / M_PI) + 5.0) / 10.0) - 0.5));
+                float grid = 0.0;
+#if 1
+                grid += step(-GRID_WIDTH, -abs(fract((atan(p.x, p.z) * (180.0 / M_PI)+GRID_INTERVAL*2.0) / GRID_INTERVAL) - 0.5));
+                grid += step(-GRID_WIDTH, -abs(fract((atan(p.y,length(p.xz)) * (180.0 / M_PI) + GRID_INTERVAL*2.0) / GRID_INTERVAL) - 0.5));
+                grid *= 0.2;
+#endif
                 //gl_FragColor = textureCube(u_cubemap, p) + grid;
                 vec4 samp = textureCube(u_cubemap, p);
                 vec4 samp2 = textureCube(u_cubemap, -p);

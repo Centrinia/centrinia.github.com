@@ -152,6 +152,17 @@ Array.prototype.equals = function (b) {
 	}
 	return true;
 }
+
+if(!Array.prototype.fill) {
+Array.prototype.fill = function(x) {
+    for(var i=0;i<this.length;i++) {
+        this[i] = x;
+    }
+    return this;
+}
+}
+
+
 function ceil_div(a, b) {
     return ~~((a+b-1) / b);
 }
@@ -906,7 +917,17 @@ var perspective_matrix = function(zN,zF,fov, aspect) {
 
 $(document).ready(function () {
     var canvas = document.getElementById('canvas');
+    var experimental_gl = false;
     var gl = canvas.getContext('webgl');
+    if(!gl) {
+        gl = canvas.getContext('experimental-webgl');
+        experimental_gl = true;
+    }
+    if(!gl) {
+        console.log('WebGL not available');
+        alert('WebGL not available');
+        return;
+    }
 
     var init_gl = function(maze) {
 
@@ -1231,6 +1252,7 @@ $(document).ready(function () {
 				case 'turn right': {
 						state['player'].look_left(-config['movement']['turn angle'] * 2 * Math.PI / 360);
 				}
+				break;
 				case 'roll left': {
 						state['player'].roll_left(config['movement']['roll angle'] * 2 * Math.PI / 360);
 				}
