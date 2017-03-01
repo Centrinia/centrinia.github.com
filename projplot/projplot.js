@@ -819,6 +819,14 @@ function getShader(gl, id, str2) {
 window.onload = function () {
     var canvas = document.getElementById('canvas');
     var gl = canvas.getContext('webgl');
+    if(!gl) {
+        gl = canvas.getContext('experimental-webgl');
+    }
+    if(!gl) {
+        console.log('WebGL not available');
+        alert('WebGL not available');
+        return;
+    }
 
 	//var fragmentShader = getShader(gl, 'shader-fragment');
     var init_gl = function (fs_name, function_body) {
