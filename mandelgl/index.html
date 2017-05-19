@@ -1,0 +1,46 @@
+<html>
+    <head>
+        <title>Mandelbrot</title>
+        <script type="text/javascript" src="mandelgl.js"></script>
+        <script id="shader-fragment" type="x-shader/x-fragment">
+            #define MAX_ITERATIONS 1024
+            precision mediump float;
+            varying vec2 v_position;
+            uniform vec2 corner0;
+            uniform vec2 corner1;
+            int mandelbrot(vec2 c) {
+                vec2 z = vec2(0,0);
+                vec2 zsq = z;
+                
+                for(int i=0; i<MAX_ITERATIONS;i++) {
+                    if(zsq.x + zsq.y > 4.0) {
+                        return i;
+                    }
+                    z = vec2(zsq.x - zsq.y, 2.0*z.x*z.y) + c;
+                    zsq = z*z;
+                }
+                return MAX_ITERATIONS;
+            }
+            void main() {
+                vec2 c = mix(corner0, corner1, (v_position+1.0)/2.0);
+
+                gl_FragColor = vec4(vec3(1,1,1) * float(mandelbrot(c))/float(MAX_ITERATIONS),1);
+            }
+        </script>
+        <script id="shader-vertex" type="x-shader/x-vertex">
+            attribute vec2 a_position;
+            varying vec2 v_position;
+            void main() {
+                gl_Position = vec4(a_position,0.0,1.0);
+                v_position = a_position;
+            }
+        </script>
+    </head>
+    <body>
+		<canvas onmousedown="return false" id='canvas' width='1024' height='1024' style='border:1px solid #000000; background: #000000'>
+		</canvas>
+		<div>
+				  <button id='reset_button'>Reset</button>
+		</div>
+    </body>
+</html>
