@@ -9,6 +9,7 @@ precision mediump float;
 uniform float dieoff;
 uniform vec4 color0;
 uniform vec4 color1;
+uniform vec4 wind;
 uniform vec2 dims;
 uniform sampler2D line;
 uniform sampler2D sampler;
@@ -20,11 +21,24 @@ float f(float f) {
 void main() {
     vec2 deltax = vec2(1.0 / dims.x, 0.0);
     vec2 deltay = vec2(0.0, 1.0 / dims.y);
-    float c0 = texture2D(sampler,vTextureCoord - deltay).a;
-    float c1 = vTextureCoord.x >= deltax.x ? texture2D(sampler,vTextureCoord - deltay - deltax).a : 0.0;
-    float c2 = vTextureCoord.x + deltax.x< 1.0 ? texture2D(sampler,vTextureCoord - deltay + deltax).a : 0.0;
-    float c3 = texture2D(sampler,vTextureCoord - deltay * 2.0).a;
-    float c = (c0+c1+c2+c3) * dieoff / 4.00;
+
+    float a_n1_0 = texture2D(sampler,vTextureCoord - deltay).a;
+    float a_1_0 = texture2D(sampler,vTextureCoord + deltay).a;
+    float a_0_0 = texture2D(sampler,vTextureCoord).a;
+    float a_0_n1 = texture2D(sampler,vTextureCoord - deltax).a;
+    float a_0_1 = texture2D(sampler,vTextureCoord + deltax).a;
+
+    float p0 = wind.x;
+    float p1 = wind.y;
+    float q0 = wind.z;
+    float q1 = wind.w;
+
+    //float c = p*a_n1_0 + (1.0-p)*(1.0-p)*a_1_0 + q*a_0_n1 + (1.0-q)*(1.0-q)*a_0_1 + (1.0-q)*(1.0-p)*a_0_0;
+    float c = p0*a_n1_0 + p1*a_1_0
+            + q0*a_0_n1 + q1*a_0_1 + (1.0-q1-q0-p1-p0)*a_0_0;
+    c *= dieoff;
+
+
     vec4 color;
     if(vTextureCoord.y >  deltay.y) {
         color = mix(color0, color1, c);
@@ -46,6 +60,6 @@ void main() {
 
 </head>
 <body>
-<canvas id="canvas" width=2048" height="256" style="background: black"></canvas>
+<canvas id="canvas" width=1024" height="128" style="background: black"></canvas>
 </body>
 </html>

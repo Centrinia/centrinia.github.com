@@ -4,6 +4,9 @@
 var DIEOFF = (1 - 2e-2) / 4.0;
 var FPS = 35.0;
 
+var saturate = function(t) {
+    return t > 1 ? 1 : (t < 0 ? 0 : t);
+};
 function drawFlame(context,flameImage,heatmap) {
 	var canvas = context.canvas;
 	var contextData = context.getImageData(0,0,canvas.width,canvas.height);
@@ -28,7 +31,7 @@ function drawFlame(context,flameImage,heatmap) {
         for(var j=0;j<canvas.width;j++) {
             var color = heatmap(flameImage[((offset+i) % canvas.height) * canvas.width + j]);
             for(var k=0;k<4;k++) {
-                pixels[((canvas.height - i-1) * canvas.width + j) * 4 + k] = color[k]*255.0;
+                pixels[((canvas.height - i-1) * canvas.width + j) * 4 + k] = saturate(color[k])*255.0;
             }
         }
     }
@@ -45,13 +48,16 @@ window.onload = (function () {
     }
     flameImage.offset = 0;
 
-    var color0 = [0.7,0.5,0.3,0.1];
-    var color1 = [3,1.2,0.7,3];
+    var color0 = [2.7,0.5,0.3,-0.1];
+    var color1 = [3,1.2,0.7,5];
+
     function heatmap(t) {
         var out = new Array(4);
-        for(var i=0;i<4;i++) {
-            out[i] = color0[i] * (1-t) + color1[i] * t;
+        out[3] = color0[3] * (1-t) + color1[3] * t;
+        for(var i=0;i<3;i++) {
+            out[i] = (color0[i] * (1-t) + color1[i] * t) * out[3] ;
         }
+        
         return out;
     }
     window.setInterval(function () {
