@@ -7,7 +7,8 @@
             precision mediump float;
             varying vec2 v_position;
             uniform vec4 u_rotation;
-            uniform int u_iterations;
+            uniform vec2 u_julia;
+            uniform int u_mode;
             uniform float u_displacement;
 
             /* Transform a vector using a quaternion. */
@@ -68,9 +69,17 @@
             }
 
             vec2 f(vec2 c) {
-                vec2 z = c;
-                for(int i=1;i<ITERATIONS;i++) {
-                    z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+                vec2 z;
+                if(u_mode == 0) {
+                    z = vec2(0.0, 0.0);
+                    for(int i=0;i<ITERATIONS;i++) {
+                        z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+                    }
+                } else {
+                    z = c;
+                    for(int i=0;i<ITERATIONS;i++) {
+                        z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + u_julia;
+                    }
                 }
                 return z;
             }
@@ -105,5 +114,6 @@
         <p>
         Iterations: <input type="number" min="1" max="512" id="iterations" value="16"></input>
         </p>
+        <span>Double click on a point on the Mandelbrot set to toggle to the respective Julia set. Double click on a Julia set to toggle back to the Mandelbrot set.</span>
     </body>
 </html>
