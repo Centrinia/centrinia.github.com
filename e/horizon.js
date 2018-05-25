@@ -127,10 +127,10 @@ var config = {
         }
     },
 	'movement' : {
-		'strafe distance' : 2.5,
-		'forward distance' : 3.5,
-		'backward distance' : 2.3,
-		'vertical distance' : 1.5,
+		'strafe distance' : 0.25,
+		'forward distance' : 0.35,
+		'backward distance' : 0.23,
+		'vertical distance' : 0.15,
 		'roll angle' : 2, // In degrees.
 		'turn angle' : 6, // In degrees.
 		'mouse turn angle' : 0.2 // In degrees.
@@ -302,9 +302,9 @@ $(document).ready(function () {
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
                 //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
-                //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.GL_REPEAT);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.GL_REPEAT);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.GL_CLAMP);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.GL_CLAMP);
                 gl.generateMipmap(gl.TEXTURE_2D);
                 gl.activeTexture(gl.TEXTURE0);
                 gl.uniform1i(program['uniform locations']['u_sampler'], 0);

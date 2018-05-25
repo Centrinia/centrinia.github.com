@@ -343,6 +343,10 @@ Player.prototype.advance = function(time) {
     if(Vector.dot(this.momentum,this.momentum) > 1e-3) {
         var new_position = Vector.add(this.camera.position, Vector.scale(time, this.momentum));
 
+        if(new_position.coords[1] > -1e-2) {
+            this.momentum = this.momentum.reflect(new Vector([0,1,0]));
+            new_position = Vector.add(this.camera.position, Vector.scale(time, this.momentum));
+        }
         this.camera.position = new_position;
         this.momentum = Vector.scale(Math.pow(MOMENTUM_DECAY,time), this.momentum);
     }

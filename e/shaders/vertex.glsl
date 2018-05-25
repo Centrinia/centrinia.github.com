@@ -1,4 +1,5 @@
 /* vertex.glsl */
+precision mediump float;
 
 uniform mat4 u_projection;
 uniform mat4 u_modelview;
