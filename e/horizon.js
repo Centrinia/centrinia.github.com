@@ -539,6 +539,9 @@ $(document).ready(function () {
 				}
 			});
 
+            state['player'].camera.position.coords[0] -= Math.floor(state['player'].camera.position.coords[0]);
+            state['player'].camera.position.coords[2] -= Math.floor(state['player'].camera.position.coords[2]);
+
             gl.uniformMatrix4fv(state['shader program']['uniform locations']['u_modelview'], false, new Float32Array(state['player'].camera.modelview().transpose().coeffs));
         };
         setInterval(handle_input, 1000/config['key refresh']);
