@@ -161,7 +161,8 @@ window.onload = function () {
     var init_gl = function (fs_name, iterations,isq) {
         var fs_prologue = 'precision mediump float;\n';
         fs_prologue += '#define ITERATIONS ' + iterations + '\n';
-        fs_prologue += '#define ISQ ' + isq.toFixed(8) + '\n';
+        fs_prologue += '#define ISQ_RE ' + isq[0].toFixed(8) + '\n';
+        fs_prologue += '#define ISQ_IM ' + isq[1].toFixed(8) + '\n';
         var fragmentShader = getShader(gl, fs_name, fs_prologue);
         var vertexShader = getShader(gl, 'shader-vertex');
         var shaderProgram = gl.createProgram();
@@ -219,17 +220,19 @@ window.onload = function () {
 
     var iterationsElement = document.getElementById('iterations');
     var iterations = parseInt(iterationsElement.value);
-    var isqElement = document.getElementById('isq');
-    var isq = parseFloat(isqElement.value);
+    var isqReElement = document.getElementById('isq_re');
+    var isqImElement = document.getElementById('isq_im');
+    var isq = [parseFloat(isqReElement.value),parseFloat(isqImElement.value)];
 
     var textElementChange = function () {
         iterations = parseInt(iterationsElement.value);
-        var isq = parseFloat(isqElement.value);
+        var isq = [parseFloat(isqReElement.value),parseFloat(isqImElement.value)];
         changeShader(iterations,isq);
     };
 
     iterationsElement.onchange = textElementChange;
-    isqElement.onchange = textElementChange;
+    isqReElement.onchange = textElementChange;
+    isqImElement.onchange = textElementChange;
 
     var showQuaternion = function (q) {
         return q;
