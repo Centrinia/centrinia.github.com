@@ -158,9 +158,10 @@ window.onload = function () {
     let u_mode = 0;
     let u_julia = [0,0];
 	//var fragmentShader = getShader(gl, 'shader-fragment');
-    var init_gl = function (fs_name, iterations) {
+    var init_gl = function (fs_name, iterations,isq) {
         var fs_prologue = 'precision mediump float;\n';
         fs_prologue += '#define ITERATIONS ' + iterations + '\n';
+        fs_prologue += '#define ISQ ' + isq.toFixed(8) + '\n';
         var fragmentShader = getShader(gl, fs_name, fs_prologue);
         var vertexShader = getShader(gl, 'shader-vertex');
         var shaderProgram = gl.createProgram();
@@ -218,13 +219,17 @@ window.onload = function () {
 
     var iterationsElement = document.getElementById('iterations');
     var iterations = parseInt(iterationsElement.value);
+    var isqElement = document.getElementById('isq');
+    var isq = parseFloat(isqElement.value);
 
-    iterationsElement.onchange = function () {
+    var textElementChange = function () {
         iterations = parseInt(iterationsElement.value);
-        changeShader(iterations);
+        var isq = parseFloat(isqElement.value);
+        changeShader(iterations,isq);
     };
 
-
+    iterationsElement.onchange = textElementChange;
+    isqElement.onchange = textElementChange;
 
     var showQuaternion = function (q) {
         return q;
@@ -247,13 +252,13 @@ window.onload = function () {
 
 
     var shader;
-    var changeShader = function (iterations) {
+    var changeShader = function (iterations,isq) {
         var fs_name;
         fs_name = 'shader-fragment-stereographic';
-        shader = init_gl(fs_name,iterations);
+        shader = init_gl(fs_name,iterations,isq);
         queueRedraw();
     };
-    changeShader(iterations);
+    changeShader(iterations,isq);
 
     queueRedraw();
 
