@@ -286,7 +286,7 @@ window.onload = function () {
     /* Find the intersection between the sphere and the view vector at the given pixel coordinates. */
     var intersectSphere = function (coords) {
         var XY = [coords[0], coords[1]];
-        XY = scale(u_displacement/4,XY);
+        XY = scale(u_displacement/2,XY);
         var p = scale(2,XY);
         p[2] = 1-dot(XY,XY);
         p = scale(1/(1+dot(XY,XY)), p);
