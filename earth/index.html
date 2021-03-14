@@ -21,7 +21,7 @@
                 /* Choose the intersection that is closer to the viewpoint. Since the 
                     * view vector points at the sphere and the viewpoint is outside it, 
                     * the scalar should be minimized. */
-#if 1
+#if 0
                 vec3 p = vec3(v_position*u_displacement, 1.0);
                 
 
@@ -55,8 +55,8 @@
 
                 float grid = 0.0;
 #if 1
-                grid += step(-GRID_WIDTH, -abs(fract((atan(p.x, p.z) * (180.0 / M_PI)+GRID_INTERVAL*2.0) / GRID_INTERVAL) - 0.5));
-                grid += step(-GRID_WIDTH, -abs(fract((atan(p.y,length(p.xz)) * (180.0 / M_PI) + GRID_INTERVAL*2.0) / GRID_INTERVAL) - 0.5));
+                grid += step(-GRID_WIDTH, -abs(fract((atan(p.x, p.z) * (180.0 / M_PI)+GRID_INTERVAL*2.0) / GRID_INTERVAL) - 0.0));
+                grid += step(-GRID_WIDTH, -abs(fract((atan(p.y,length(p.xz)) * (180.0 / M_PI) + GRID_INTERVAL*2.0) / GRID_INTERVAL) - 0.0));
                 grid *= 0.2;
 #endif
                 //gl_FragColor = textureCube(u_cubemap, p) + grid;
