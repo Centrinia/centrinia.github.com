@@ -16,7 +16,7 @@
                 return v + 2.0 * cross(cross(v, q.xyz) + q.w * v, q.xyz);
             }
             void main() {
-                vec2 XY = v_position*u_displacement / 4.0;
+                vec2 XY = v_position*u_displacement / 2.0;
                 vec3 p =  vec3(2.0*XY, 1.0 - dot(XY,XY));
 
                 p /= 1.0 + dot(XY,XY);

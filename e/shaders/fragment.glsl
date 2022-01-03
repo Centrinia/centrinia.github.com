@@ -2,11 +2,11 @@
 
 precision mediump float;
 
-varying vec3 v_normal;
-varying vec3 v_color;
+//varying vec3 v_normal;
+//varying vec3 v_color;
 varying vec4 v_position;
 
-uniform int u_offset;
+//uniform int u_offset;
 uniform sampler2D u_sampler;
 
 void main() {

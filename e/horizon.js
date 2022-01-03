@@ -300,11 +300,13 @@ $(document).ready(function () {
                 gl.bindTexture(gl.TEXTURE_2D, texture);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
                 //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.GL_CLAMP);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.GL_CLAMP);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.GL_MIRRORED_REPEAT);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.GL_MIRRORED_REPEAT);
+                //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.GL_CLAMP);
+                //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.GL_CLAMP);
                 gl.generateMipmap(gl.TEXTURE_2D);
                 gl.activeTexture(gl.TEXTURE0);
                 gl.uniform1i(program['uniform locations']['u_sampler'], 0);
@@ -340,14 +342,16 @@ $(document).ready(function () {
     var redraw_loop = function () {
         var program = state['shader program'];
 
-        var offset = ~~(state['tickcount'] / config['animation duration']) % 4;
-        gl.uniform1i(state['shader program']['uniform locations']['u_offset'], offset);
+        //var offset = ~~(state['tickcount'] / config['animation duration']) % 4;
+        //gl.uniform1i(state['shader program']['uniform locations']['u_offset'], offset);
         state['tickcount']++;
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.bindBuffer(gl.ARRAY_BUFFER, program['vertex position buffer']);
         gl.vertexAttribPointer(program['attribute locations']['a_position'], 4, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, program['index buffer']);
+        gl.bindTexture(gl.TEXTURE_2D, program['texture']);
+        gl.activeTexture(gl.TEXTURE0);
 
         gl.drawElements(gl.TRIANGLES, state['polygons']['vertex count'], gl.UNSIGNED_SHORT, 0);
 

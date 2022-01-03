@@ -1,4 +1,3 @@
-/* maze3.js */
 
 'use strict';
 
