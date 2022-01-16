@@ -407,6 +407,35 @@ window.onload = function () {
         p = scale(1/(1+abs_sq), p);
 		return p;
 	};
+
+
+    let intersectSphere_lee_conformal = function (coords) {
+		let R = sphereRadius;
+        let XY = [coords[0], coords[1]];
+        XY = scale(u_displacement/2,XY);
+
+		XY[0] *= -1;
+		/*
+				vec2 z = sd(XY * M_SQRT2, vec2(0.0,1.0)) / M_SQRT2;
+				float abs_sq =z.x*z.x + z.y*z.y;
+				vec3 p = vec3(2.0 * z, abs_sq-1.0) / (1.0 + abs_sq);
+		*/
+		let t = [0,0];
+
+		for(let k=0;k<t.length;k++) {
+			t[k] = ((XY[k]+Math.SQRT2)%(2*Math.SQRT2)) - Math.SQRT2;
+		}
+
+
+		let z = scale(1/Math.SQRT2,sd(scale(Math.SQRT2, t), [0, 1]));
+        let p = [z[0]*2,z[1]*2,0];
+		let abs_sq = dot(z,z);
+        p[2] = abs_sq - 1;
+
+        p = scale(1/(1+abs_sq), p);
+		return p;
+	};
+
     let intersectSphere_mollweide = function (coords) {
 		let R = sphereRadius;
         let XY = [coords[0], coords[1]];
@@ -471,6 +500,13 @@ window.onload = function () {
 		},
 
 		"quincuncial": {
+			"intersectSphere": intersectSphere_quincuncial,
+			"initialDisplacement": 1.0,
+			"initialRotation": [-1,1,1,-1],
+		},
+
+		"lee_conformal": {
+			//"intersectSphere": intersectSphere_lee_conformal,
 			"intersectSphere": intersectSphere_quincuncial,
 			"initialDisplacement": 1.0,
 			"initialRotation": [-1,1,1,-1],
@@ -546,7 +582,6 @@ window.onload = function () {
             gl.uniform4fv(shader.u_rotation, rotQuat(rotationQuaternion));
 
             queueRedraw();
-			console.log(rotationQuaternion);
             previousVector = p;
         } else {
             previousVector = null;
