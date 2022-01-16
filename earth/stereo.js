@@ -245,6 +245,24 @@ window.onload = function () {
 
 
     /* Find the intersection between the sphere and the view vector at the given pixel coordinates. */
+    let intersectSphere_sinusoidal = function (coords) {
+		let R = sphereRadius;
+        let XY = [coords[0], coords[1]];
+        XY = scale(u_displacement/2,XY);
+		/*
+				float vartheta = XY.y;
+				float lambda = XY.x / cos(vartheta);
+		 */
+		let vartheta = XY[1];
+		let lambda = XY[0] / Math.cos(vartheta);
+
+		if(!(Math.abs(lambda) < Math.PI && Math.abs(vartheta) < Math.PI/2)) {
+			return null;
+		}
+		let p = [Math.cos(lambda) * Math.cos(vartheta),Math.sin(lambda) * Math.cos(vartheta), Math.sin(vartheta)];
+        return p;
+    };
+
     let intersectSphere_mercator = function (coords) {
 		let R = sphereRadius;
         let XY = [coords[0], coords[1]];
@@ -259,6 +277,7 @@ window.onload = function () {
 
 		let lambda = XY[0] / R;
 		let vartheta = 2 * Math.atan(Math.exp(XY[1]/R)) - Math.PI / 2;
+
 		let p = [Math.cos(lambda) * Math.cos(vartheta),Math.sin(lambda) * Math.cos(vartheta), Math.sin(vartheta)];
         return p;
     };
@@ -319,6 +338,12 @@ window.onload = function () {
 			"initialDisplacement": 6.0,
 			"initialRotation": [1,1,0,0],
 		},
+		"sinusoidal": {
+			"intersectSphere": intersectSphere_sinusoidal,
+			"initialDisplacement": 7.0,
+			"initialRotation": [1,1,0,0],
+		},
+
 		"stereographic": {
 			"intersectSphere": intersectSphere_stereographic,
 			"initialDisplacement": 2.0,

@@ -1,7 +1,7 @@
 <html>
     <head>
-        <title>Mollweide</title>
-		<script type="text/javascript">let projectionType="mollweide";</script>
+        <title>Sinusoidal</title>
+		<script type="text/javascript">let projectionType="sinusoidal";</script>
         <script type="text/javascript" src="stereo.js"></script>
         <script id="shader-fragment" type="x-shader/x-fragment">
             precision mediump float;
@@ -26,13 +26,10 @@
                     * the scalar should be minimized. */
                 vec2 XY = v_position*u_displacement / 2.0;
 				
-				float beta = asin(XY.y / (R * M_SQRT2));
-				float vartheta2 = (2.0*beta + sin(2.0*beta)) / M_PI;
-				float vartheta = asin(vartheta2);
+				float vartheta = XY.y;
+				float lambda = XY.x / cos(vartheta);
 
-				float lambda = M_PI * XY.x / (2.0*R*M_SQRT2 * cos(beta));
-	
-				if(!((-M_PI < lambda) && (lambda < M_PI))) {
+				if(!(abs(lambda) < M_PI && abs(vartheta) < M_PI/2.0)) {
 					discard;
 				}
                 vec3 p = vec3(vec2(cos(lambda), sin(lambda))*cos(vartheta),sin(vartheta));
