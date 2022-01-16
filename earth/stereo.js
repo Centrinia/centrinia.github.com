@@ -113,6 +113,9 @@ function cneg(a) {
 }
 let cadd = add;
 let csub = sub;
+function csqr(a) {
+	return [a[0]*a[0] - a[1]*a[1], 2*a[0]*a[1]];
+}
 function cmul(a,b) {
 	return [a[0]*b[0] - a[1]*b[1], a[1]*b[0] + a[0]*b[1]];
 }
@@ -205,6 +208,32 @@ function sd(z,tau) {
 	let dn = cdiv(cmul(v_01_0 , v_00_z) , cmul(v_00_0 , v_01_z));
 
 	return cdiv(sn, dn);
+}
+function cm_sm(z,tau) {
+	const M_CBRT2 = 1.2599210498948731647672106072782283506;
+	const theta = [0.3406250193166066401943942440378308889772 , 1.271229878418706239135612991021064976728];
+	const pi3 = 5.2999162508563498719410684989453161077;
+	//let u = (z + pi3 / 6) / (M_CBRT2 * theta);
+	let u = cdiv(cadd(z , [pi3 / 6,0]) , scale(M_CBRT2 , theta));
+	let v_00_0 = vartheta_00([0,0], tau);
+	let v_10_0 = vartheta_10([0,0], tau);
+	let v_01_0 = vartheta_01([0,0], tau);
+
+	let v_00_z = vartheta_00(u, tau);
+	let v_10_z = vartheta_10(u, tau);
+	let v_01_z = vartheta_01(u, tau);
+	let v_11_z = vartheta_11(u, tau);
+
+	let sn = cneg(cdiv(cmul(v_00_0 , v_11_z) , cmul(v_10_0 , v_01_z)));
+	let cn = cdiv(cmul(v_01_0 , v_10_z) , cmul(v_10_0 , v_01_z));
+	let dn = cdiv(cmul(v_01_0 , v_00_z) , cmul(v_00_0 , v_01_z));
+
+	//let xi = (-1 + theta *sn*cn*dn) / (1+theta*sn*cn*dn);
+	let tscd = cmul(theta ,cmul(sn,cmul(cn,dn)));
+	let xi = cdiv(cadd([-1,0], tscd),cadd([1,0] , tscd));
+	let nu = scale(M_CBRT2 , cdiv(cadd([1,0] , csqr(cmul(theta,sn))),scale(M_CBRT2 , theta)));
+
+	return scale(2, cmul(xi,nu));
 }
 
 function getShader(gl, id, str2) {
@@ -410,24 +439,19 @@ window.onload = function () {
 
 
     let intersectSphere_lee_conformal = function (coords) {
+		const tau = [-0.5, 0.8660254037844386467637231707529361834714];
 		let R = sphereRadius;
         let XY = [coords[0], coords[1]];
         XY = scale(u_displacement/2,XY);
+		XY[0] = -XY[0];
 
-		XY[0] *= -1;
 		/*
-				vec2 z = sd(XY * M_SQRT2, vec2(0.0,1.0)) / M_SQRT2;
-				float abs_sq =z.x*z.x + z.y*z.y;
-				vec3 p = vec3(2.0 * z, abs_sq-1.0) / (1.0 + abs_sq);
+			XY.x = -XY.x;
+				vec2 tau = vec2(-0.5, 0.8660254037844386467637231707529361834714);
+				vec2 z = cm_sm(XY, tau) / 1.781797436280678609480452411181025015974;
 		*/
-		let t = [0,0];
+		let z = scale(1/1.781797436280678609480452411181025015974, cm_sm(XY, tau));
 
-		for(let k=0;k<t.length;k++) {
-			t[k] = ((XY[k]+Math.SQRT2)%(2*Math.SQRT2)) - Math.SQRT2;
-		}
-
-
-		let z = scale(1/Math.SQRT2,sd(scale(Math.SQRT2, t), [0, 1]));
         let p = [z[0]*2,z[1]*2,0];
 		let abs_sq = dot(z,z);
         p[2] = abs_sq - 1;
@@ -506,8 +530,7 @@ window.onload = function () {
 		},
 
 		"lee_conformal": {
-			//"intersectSphere": intersectSphere_lee_conformal,
-			"intersectSphere": intersectSphere_quincuncial,
+			"intersectSphere": intersectSphere_lee_conformal,
 			"initialDisplacement": 1.0,
 			"initialRotation": [-1,1,1,-1],
 		},
