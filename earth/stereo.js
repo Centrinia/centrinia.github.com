@@ -473,7 +473,7 @@ window.onload = function () {
 		"quincuncial": {
 			"intersectSphere": intersectSphere_quincuncial,
 			"initialDisplacement": 1.0,
-			"initialRotation": [0,1,0,0],
+			"initialRotation": [-1,1,1,-1],
 		},
 
 
@@ -546,7 +546,7 @@ window.onload = function () {
             gl.uniform4fv(shader.u_rotation, rotQuat(rotationQuaternion));
 
             queueRedraw();
-
+			console.log(rotationQuaternion);
             previousVector = p;
         } else {
             previousVector = null;
