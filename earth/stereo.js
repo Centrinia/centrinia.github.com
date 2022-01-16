@@ -107,6 +107,106 @@ function normalize(v) {
     }
     return y;
 }
+
+function cneg(a) {
+	return [-a[0],-a[1]];
+}
+let cadd = add;
+let csub = sub;
+function cmul(a,b) {
+	return [a[0]*b[0] - a[1]*b[1], a[1]*b[0] + a[0]*b[1]];
+}
+function cdiv(a,b) {
+	let t = b[0]*b[0] + b[1]*b[1];
+	return [(a[0]*b[0] + a[1]*b[1])/t, (a[1]*b[0] - a[0]*b[1])/t];
+}
+function cmul_i(z) {
+	return [-z[1],z[0]];
+}
+function cexp(z) {
+	return scale(Math.exp(z[0]),[Math.cos(z[1]),Math.sin(z[1])]);
+}
+function crecip(z) {
+	let t = z[0] * z[0] + z[1] * z[1];
+	return [z[0]/t,-z[1]/t];
+}
+function ccos(z) {
+	let t = cexp(cmul_i(z));
+	return scale(1/2,add(t,crecip(t)));
+}
+function vartheta2(z,tau) {
+	const ITERATIONS=128;
+	const TOL_SQ=1e-10;
+	let s = [0,0];
+	let z2 = scale(Math.PI*2, z);
+	let tau2 = scale(Math.PI,cmul_i(tau));
+	for(let k=1;k<ITERATIONS;k++) {
+		let s_k = cmul(
+			cexp(scale(k*k,tau2)),
+			ccos(scale(k,z2))
+		);
+		if(dot(s_k,s_k) <= TOL_SQ) {
+			break;
+		}
+		s = add(s,s_k);
+	}
+	s = scale(2,s);
+	s[0] += 1;
+	return s;
+}
+function vartheta(z,tau) {
+	let b = -Math.floor(z[1] / tau[1] + 1/2);
+	let z2 = add(z , scale(b,tau));
+	let a = -Math.floor(z2[0] +1/2);
+	let z3 = z2;
+	z3[0] += a;
+
+	return cmul(
+		vartheta2(z3,tau),
+		cexp(scale(Math.PI * b , cmul_i(add(scale(b, tau) , scale(2, z)))))
+	);
+}
+
+function vartheta_00(z, tau) {
+	return vartheta(z,tau);
+}
+function vartheta_11(z, tau) {
+	let t = add(scale(1/4,tau), z);
+	t[0] -= 1/2;
+	t = scale(Math.PI,cmul_i(t));
+	let B = cexp(t);
+	return cmul(
+		B,
+		vartheta(cadd(z,scale(1/2,[tau[0]+1,tau[1]])),tau)
+	);
+}
+function vartheta_01(z, tau) {
+	return vartheta([z[0]+1/2,z[1]],tau);
+}
+function vartheta_10(z, tau) {
+	let t = add(scale(1/4,tau), z);
+	t = scale(Math.PI,cmul_i(t));
+	let B = cexp(t);
+	return cmul(
+		B,
+		vartheta(cadd(z,scale(1/2,tau)),tau)
+	);
+}
+function sd(z,tau) {
+	let v_00_0 = vartheta_00([0,0], tau);
+	let v_10_0 = vartheta_10([0,0], tau);
+	let v_01_0 = vartheta_01([0,0], tau);
+
+	let v_00_z = vartheta_00(z, tau);
+	let v_01_z = vartheta_01(z, tau);
+	let v_11_z = vartheta_11(z, tau);
+
+	let sn = cneg(cdiv(cmul(v_00_0 , v_11_z) , cmul(v_10_0 , v_01_z)));
+	let dn = cdiv(cmul(v_01_0 , v_00_z) , cmul(v_00_0 , v_01_z));
+
+	return cdiv(sn, dn);
+}
+
 function getShader(gl, id, str2) {
     var shaderScript = document.getElementById(id);
     if (!shaderScript) {
@@ -281,6 +381,32 @@ window.onload = function () {
 		let p = [Math.cos(lambda) * Math.cos(vartheta),Math.sin(lambda) * Math.cos(vartheta), Math.sin(vartheta)];
         return p;
     };
+    let intersectSphere_quincuncial = function (coords) {
+		let R = sphereRadius;
+        let XY = [coords[0], coords[1]];
+        XY = scale(u_displacement/2,XY);
+
+		XY[0] *= -1;
+		/*
+				vec2 z = sd(XY * M_SQRT2, vec2(0.0,1.0)) / M_SQRT2;
+				float abs_sq =z.x*z.x + z.y*z.y;
+				vec3 p = vec3(2.0 * z, abs_sq-1.0) / (1.0 + abs_sq);
+		*/
+		let t = [0,0];
+
+		for(let k=0;k<t.length;k++) {
+			t[k] = ((XY[k]+Math.SQRT2)%(2*Math.SQRT2)) - Math.SQRT2;
+		}
+
+
+		let z = scale(1/Math.SQRT2,sd(scale(Math.SQRT2, t), [0, 1]));
+        let p = [z[0]*2,z[1]*2,0];
+		let abs_sq = dot(z,z);
+        p[2] = abs_sq - 1;
+
+        p = scale(1/(1+abs_sq), p);
+		return p;
+	};
     let intersectSphere_mollweide = function (coords) {
 		let R = sphereRadius;
         let XY = [coords[0], coords[1]];
@@ -343,6 +469,13 @@ window.onload = function () {
 			"initialDisplacement": 7.0,
 			"initialRotation": [1,1,0,0],
 		},
+
+		"quincuncial": {
+			"intersectSphere": intersectSphere_quincuncial,
+			"initialDisplacement": 1.0,
+			"initialRotation": [0,1,0,0],
+		},
+
 
 		"stereographic": {
 			"intersectSphere": intersectSphere_stereographic,

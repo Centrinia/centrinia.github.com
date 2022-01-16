@@ -1,0 +1,151 @@
+<html>
+    <head>
+        <title>Pierce Quincuncial</title>
+		<script type="text/javascript">let projectionType="quincuncial";</script>
+        <script type="text/javascript" src="stereo.js"></script>
+        <script id="shader-fragment" type="x-shader/x-fragment">
+            precision mediump float;
+            varying vec2 v_position;
+            uniform vec4 u_rotation;
+            uniform float u_displacement;
+            uniform samplerCube u_cubemap;
+
+			#define R 1.0
+            #define M_PI 3.1415926535897932384626433832795
+            #define M_SQRT2 1.4142135623730950488016887242096980786
+			#define ITERATIONS 128
+			#define TOL_SQ 1e-18
+            #define GRID_INTERVAL 10.0
+            #define GRID_WIDTH 6e-3
+
+            /* Transform a vector using a quaternion. */
+            vec3 qtransform(vec4 q, vec3 v) {
+                return v + 2.0 * cross(cross(v, q.xyz) + q.w * v, q.xyz);
+            }
+			vec2 cmul(vec2 u, vec2 v) {
+				return vec2(u.x * v.x - u.y * v.y, u.x * v.y + u.y * v.x);
+			}
+			vec2 cdiv(vec2 u, vec2 v) {
+				return vec2(u.x * v.x + u.y * v.y, -u.x * v.y + u.y * v.x) / (v.x * v.x + v.y*v.y);
+			}
+			vec2 crecip(vec2 z) {
+				return vec2(z.x, -z.y) / (z.x*z.x+z.y*z.y);
+			}
+			vec2 cexp(vec2 z) {
+				return exp(z.x) * vec2(cos(z.y),sin(z.y));
+			}
+			vec2 cmul_i(vec2 z) {
+				return vec2(-z.y, z.x);
+			}
+			vec2 ccos(vec2 z) {
+				vec2 t = cexp(cmul_i(z));
+				return (t + crecip(t)) / 2.0;
+			}
+			vec2 vartheta2(vec2 z, vec2 tau) {
+				vec2 s = vec2(0.0, 0.0);
+				vec2 z2 = 2.0 * z * M_PI;
+				vec2 tau2 = cmul_i(tau) * M_PI;
+				for(int k=1;k<=ITERATIONS;k++) {
+					vec2 s_k = cmul(
+						cexp(tau2 * float(k*k)),
+						ccos(float(k) * z2)
+					);
+					if(s_k.x*s_k.x + s_k.y*s_k.y <= TOL_SQ) {
+						break;
+					}
+					s += s_k;
+				}
+				return vec2(1.0,0.0) + 2.0 * s;
+			}
+			vec2 vartheta(vec2 z, vec2 tau) {
+				float b = -floor(z.y / tau.y + 1.0 / 2.0);
+				vec2 z2 = z + b*tau;
+				float a = -floor(z2.x + 1.0 / 2.0);
+				vec2 z3 = z2 + vec2(a,0.0);
+
+				return cmul(
+					vartheta2(z3,tau),
+					cexp(M_PI * b * cmul_i(b * tau + 2.0 * z))
+				);
+			}
+
+			vec2 vartheta_00(vec2 z, vec2 tau) {
+				return vartheta(z,tau);
+			}
+			vec2 vartheta_11(vec2 z, vec2 tau) {
+				vec2 t = tau/4.0 + z;
+				t.x -= 1.0/2.0;
+				t = cmul_i(t) * M_PI;
+				vec2 B = cexp(t);
+				return cmul(
+					B,
+					vartheta(z+vec2(tau.x+1.0,tau.y)/2.0,tau)
+				);
+			}
+			vec2 vartheta_01(vec2 z, vec2 tau) {
+				vec2 t = z;
+				t.x += 1.0/2.0;
+				return vartheta(t,tau);
+			}
+			vec2 vartheta_10(vec2 z, vec2 tau) {
+				vec2 t = cmul_i(tau/4.0 + z)*M_PI;
+				vec2 B = cexp(t);
+				return cmul(
+					B,
+					vartheta(z+tau/2.0,tau)
+				);
+			}
+			vec2 sd(vec2 z,vec2 tau) {
+				vec2 v_00_0 = vartheta_00(vec2(0.0, 0.0), tau);
+				vec2 v_10_0 = vartheta_10(vec2(0.0, 0.0), tau);
+				vec2 v_01_0 = vartheta_01(vec2(0.0, 0.0), tau);
+
+				vec2 v_00_z = vartheta_00(z, tau);
+				vec2 v_01_z = vartheta_01(z, tau);
+				vec2 v_11_z = vartheta_11(z, tau);
+
+				vec2 sn = - cdiv(cmul(v_00_0 , v_11_z) , cmul(v_10_0 , v_01_z));
+				vec2 dn = cdiv(cmul(v_01_0 , v_00_z) , cmul(v_00_0 , v_01_z));
+
+				return cdiv(sn, dn);
+			}
+            void main() {
+                /* Choose the intersection that is closer to the viewpoint. Since the 
+                    * view vector points at the sphere and the viewpoint is outside it, 
+                    * the scalar should be minimized. */
+                vec2 XY = v_position*u_displacement / 2.0;
+				XY.x = -XY.x;
+				XY = mod(XY+M_SQRT2,2.0*M_SQRT2)-M_SQRT2;
+				vec2 z = sd(XY * M_SQRT2, vec2(0.0,1.0)) / M_SQRT2;
+				float abs_sq =z.x*z.x + z.y*z.y;
+				vec3 p = vec3(2.0 * z, abs_sq-1.0) / (1.0 + abs_sq);
+
+
+                /* Rotate the sphere. */
+                p = qtransform(u_rotation,p);
+
+                float grid = 0.0;
+#if 1
+                grid += step(-GRID_WIDTH, -abs(fract((atan(p.x, p.z) * (180.0 / M_PI)+GRID_INTERVAL*2.0) / GRID_INTERVAL) - 0.0));
+                grid += step(-GRID_WIDTH, -abs(fract((atan(p.y,length(p.xz)) * (180.0 / M_PI) + GRID_INTERVAL*2.0) / GRID_INTERVAL) - 0.0));
+                grid *= 0.2;
+#endif
+                //gl_FragColor = textureCube(u_cubemap, p) + grid;
+                vec4 samp = textureCube(u_cubemap, p);
+                vec4 samp2 = textureCube(u_cubemap, -p);
+                gl_FragColor = samp + samp2*vec4(0.45,0.4,0.5,0) + grid;
+            }
+        </script>
+        <script id="shader-vertex" type="x-shader/x-vertex">
+            attribute vec2 a_position;
+            varying vec2 v_position;
+            void main() {
+                gl_Position = vec4(a_position,0.0,1.0);
+                v_position = a_position;
+            }
+        </script>
+    </head>
+    <body>
+        <canvas id="canvas" width="1024" height="1024"></canvas>
+    </body>
+</html>
