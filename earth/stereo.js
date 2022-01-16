@@ -284,14 +284,79 @@ window.onload = function () {
 
 
     /* Find the intersection between the sphere and the view vector at the given pixel coordinates. */
-    var intersectSphere = function (coords) {
+    let intersectSphere_mercator = function (coords) {
+		let R = 1;
+        let XY = [coords[0], coords[1]];
+        XY = scale(u_displacement/2,XY);
+				
+		/*
+				float lambda = XY.x / R;
+				float theta = 2.0 * atan(exp(XY.y/R)) - M_PI / 2.0;
+
+                vec3 p = vec3(vec2(cos(lambda), sin(lambda))*cos(theta),sin(theta));
+		*/
+
+		let lambda = XY[0] / R;
+		let vartheta = 2 * Math.atan(Math.exp(XY[1]/R)) - Math.PI / 2;
+		let p = [Math.cos(lambda) * Math.cos(vartheta),Math.sin(lambda) * Math.cos(vartheta), Math.sin(vartheta)];
+        return p;
+    };
+    let intersectSphere_mollweide = function (coords) {
+		let R = 1;
+        let XY = [coords[0], coords[1]];
+        XY = scale(u_displacement/2,XY);
+		let beta = Math.asin(XY[1] / (R*Math.SQRT2));
+		let vartheta = Math.asin((2*beta + Math.sin(2*beta)) / Math.PI);
+		let lambda = Math.PI * XY[0] / (2 * R * Math.SQRT2 * Math.cos(beta));
+	/*			
+				float beta = asin(XY.y / (R * M_SQRT2));
+				float vartheta2 = (2.0*beta + sin(2.0*beta)) / M_PI;
+				float vartheta = asin(vartheta2);
+
+				float lambda = M_PI * XY.x / (2.0*R*M_SQRT2 * cos(beta));
+	
+				if(!((-M_PI <= lambda) && (lambda < M_PI))) {
+					discard;
+				}
+                vec3 p = vec3(vec2(cos(lambda), sin(lambda))*cos(vartheta),sin(vartheta));
+	*/
+		//if(!(Math.abs(lambda) < 2*Math.PI && Number.isFinite(lambda) && Number.isFinite(vartheta))) {
+		
+
+
+		if(!(Number.isFinite(lambda) && Number.isFinite(vartheta))) {
+			return null;
+		}
+		let p = [Math.cos(lambda) * Math.cos(vartheta),Math.sin(lambda) * Math.cos(vartheta), Math.sin(vartheta)];
+        return p;
+	}
+    let intersectSphere_stereographic = function (coords) {
         var XY = [coords[0], coords[1]];
         XY = scale(u_displacement/2,XY);
         var p = scale(2,XY);
         p[2] = 1-dot(XY,XY);
         p = scale(1/(1+dot(XY,XY)), p);
+
+		/*
+		 
+                vec2 XY = v_position*u_displacement / 2.0;
+                vec3 p =  vec3(2.0 * XY, 1.0 - dot(XY,XY));
+
+                p /= 1.0 + dot(XY,XY);
+		*/
         return p;
     };
+	
+	let intersectSphere_functions = {
+		"mercator": intersectSphere_mercator,
+		"mollweide": intersectSphere_mollweide,
+		"stereographic": intersectSphere_stereographic
+	};
+    let intersectSphere = intersectSphere_functions[projectionType];
+	console.log(projectionType);
+	console.log(intersectSphere);
+	 
+
     var makeVector = function (coords) {
         return intersectSphere(coords);
     }
