@@ -106,11 +106,13 @@
 				vec2 v_00_0 = vartheta_00(vec2(0.0, 0.0), tau);
 				vec2 v_10_0 = vartheta_10(vec2(0.0, 0.0), tau);
 				vec2 v_01_0 = vartheta_01(vec2(0.0, 0.0), tau);
+				vec2 z2 = cdiv(u,M_PI * csqr(v_00_0));
 
-				vec2 v_00_z = vartheta_00(u, tau);
-				vec2 v_10_z = vartheta_10(u, tau);
-				vec2 v_01_z = vartheta_01(u, tau);
-				vec2 v_11_z = vartheta_11(u, tau);
+
+				vec2 v_00_z = vartheta_00(z2, tau);
+				vec2 v_10_z = vartheta_10(z2, tau);
+				vec2 v_01_z = vartheta_01(z2, tau);
+				vec2 v_11_z = vartheta_11(z2, tau);
 
 				vec2 sn = - cdiv(cmul(v_00_0 , v_11_z) , cmul(v_10_0 , v_01_z));
 				vec2 cn = cdiv(cmul(v_01_0 , v_10_z) , cmul(v_10_0 , v_01_z));
@@ -119,21 +121,27 @@
 				//vec2 xi = (-1 + theta *sn*cn*dn) / (1+theta*sn*cn*dn);
 				vec2 tscd = cmul( theta ,cmul(sn,cmul(cn,dn)));
 				vec2 xi = cdiv(vec2(-1.0,0.0) + tscd,vec2(1.0,0.0) + tscd);
-				vec2 nu = M_CBRT2 * cdiv(vec2(1.0,0.0) + csqr(cmul(theta,sn)),M_CBRT2 * theta);
+				vec2 eta = M_CBRT2 * cdiv(csqr(vec2(1.0,0.0) + csqr(cmul(theta,sn))),vec2(1.0,0.0) + tscd);
 
-				return 2.0 * cmul(xi,nu);
+				return 2.0 * cmul(xi,eta);
 			}
             void main() {
                 /* Choose the intersection that is closer to the viewpoint. Since the 
                     * view vector points at the sphere and the viewpoint is outside it, 
                     * the scalar should be minimized. */
                 vec2 XY = v_position*u_displacement / 2.0;
-				XY.x = -XY.x;
+				//XY.x = -XY.x;
+				XY = XY.yx;
 				vec2 tau = vec2(-0.5, 0.8660254037844386467637231707529361834714);
 				vec2 z = cm_sm(XY, tau) / 1.781797436280678609480452411181025015974;
+				//float lambda = atan(z.y, z.x);
+				//float vartheta = (M_PI/4.0 - atan(length(z)))*2.0;
+
+
+                //vec3 p = vec3(vec2(cos(lambda), sin(lambda))*cos(vartheta),sin(vartheta));
+
 				float abs_sq =z.x*z.x + z.y*z.y;
 				vec3 p = vec3(2.0 * z, abs_sq-1.0) / (1.0 + abs_sq);
-
 
                 /* Rotate the sphere. */
                 p = qtransform(u_rotation,p);
@@ -145,8 +153,12 @@
                 grid *= 0.2;
 #endif
                 //gl_FragColor = textureCube(u_cubemap, p) + grid;
+
                 vec4 samp = textureCube(u_cubemap, p);
                 vec4 samp2 = textureCube(u_cubemap, -p);
+				samp.rgb *= 1e-0;
+				samp2.rgb *= 1e-15;
+
                 gl_FragColor = samp + samp2*vec4(0.45,0.4,0.5,0) + grid;
             }
         </script>
